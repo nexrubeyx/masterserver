@@ -104,20 +104,25 @@ export class MapService {
   // Retorna string "t:t:t:..." para janela 2*rx por 2*ry
   buildViewportPayload(map, x, y, rx, ry) {
     const out = [];
+    // Tile para fora-do-mapa: usa parede padrão (evita “preto”)
+    const oobTile = Number.isFinite(this.env.DEFAULT_CAVE_WALL)
+      ? String(this.env.DEFAULT_CAVE_WALL)
+      : '0';
+
     for (let cx = -rx; cx < rx; cx++) {
       for (let cy = -ry; cy < ry; cy++) {
         const tx = x + cx;
         const ty = y + cy;
 
-        // fora dos limites -> 0
+        // Fora dos limites -> parede
         if (tx < 0 || ty < 0 || tx >= map.width || ty >= map.height) {
-          out.push('0');
+          out.push(oobTile);
           continue;
         }
 
         const row = Array.isArray(map.tiles[ty]) ? map.tiles[ty] : null;
         if (!row) {
-          out.push('0');
+          out.push(oobTile);
           continue;
         }
 
@@ -134,30 +139,37 @@ export class MapService {
     return { x: nx, y: ny };
   }
 
-  checkExitAndTransition(player) {
-    const map = this.getMap(player.mapId);
-    if (!map) return null;
+checkExitAndTransition(player) {
+  const map = this.getMap(player.mapId);
+  if (!map) return null;
 
-    if (player.x < 0) {
-      const west = this.getNeighbor(map.id, 'west');
-      if (west) return { toMap: west.id, x: west.width - 1, y: player.y, edge: 'west' };
-      player.x = 0;
-    } else if (player.x >= map.width) {
-      const east = this.getNeighbor(map.id, 'east');
-      if (east) return { toMap: east.id, x: 0, y: player.y, edge: 'east' };
-      player.x = map.width - 1;
-    }
+  // limpa estado anterior de bloqueio
+  player._blockedEdge = null;
 
-    if (player.y < 0) {
-      const north = this.getNeighbor(map.id, 'north');
-      if (north) return { toMap: north.id, x: player.x, y: north.height - 1, edge: 'north' };
-      player.y = 0;
-    } else if (player.y >= map.height) {
-      const south = this.getNeighbor(map.id, 'south');
-      if (south) return { toMap: south.id, x: player.x, y: 0, edge: 'south' };
-      player.y = map.height - 1;
-    }
-
-    return null;
+  if (player.x < 0) {
+    const west = this.getNeighbor(map.id, 'west');
+    if (west) return { toMap: west.id, x: west.width - 1, y: player.y, edge: 'west' };
+    player.x = 0;
+    player._blockedEdge = 'west';
+  } else if (player.x >= map.width) {
+    const east = this.getNeighbor(map.id, 'east');
+    if (east) return { toMap: east.id, x: 0, y: player.y, edge: 'east' };
+    player.x = map.width - 1;
+    player._blockedEdge = 'east';
   }
+
+  if (player.y < 0) {
+    const north = this.getNeighbor(map.id, 'north');
+    if (north) return { toMap: north.id, x: player.x, y: north.height - 1, edge: 'north' };
+    player.y = 0;
+    player._blockedEdge = 'north';
+  } else if (player.y >= map.height) {
+    const south = this.getNeighbor(map.id, 'south');
+    if (south) return { toMap: south.id, x: player.x, y: 0, edge: 'south' };
+    player.y = map.height - 1;
+    player._blockedEdge = 'south';
+  }
+
+  return null;
+}
 }

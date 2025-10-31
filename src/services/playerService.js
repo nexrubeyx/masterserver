@@ -1,7 +1,7 @@
 import { savePlayerPosition } from '../models/Player.js';
 
 export class PlayerService {
-   constructor(env, logger, world) {
+  constructor(env, logger, world) {
     this.env = env;
     this.logger = logger;
     this.world = world;
@@ -107,52 +107,40 @@ export class PlayerService {
 
     let moved = false;
     while (player._accumMs >= stepMs) {
-      player._accumMs -= stepMs;
-      moved = true;
+      const map = this.world.mapService.getMap(player.mapId);
+      if (!map) break;
 
-      const nx = player.x + (player.dir === 1 ? 1 : player.dir === 3 ? -1 : 0);
-      const ny = player.y + (player.dir === 2 ? 1 : player.dir === 0 ? -1 : 0);
+      // Calcula o próximo alvo (sem aplicar ainda)
+      const dx = (player.dir === 1 ? 1 : player.dir === 3 ? -1 : 0);
+      const dy = (player.dir === 2 ? 1 : player.dir === 0 ? -1 : 0);
+      const nx = player.x + dx;
+      const ny = player.y + dy;
+
+      // Consumimos o tempo deste passo
+      player._accumMs -= stepMs;
+
+      // Bordas INACESSÍVEIS: se sairia do mapa, bloqueia o passo e não altera x/y
+      if (nx < 0 || ny < 0 || nx >= map.width || ny >= map.height) {
+        // Não move, não marca viewport, não envia nada.
+        break;
+      }
+
+      // Passo válido dentro do mapa
       player.x = nx;
       player.y = ny;
 
-      // Transição de mapa (processa quantas forem necessárias por tick)
-      const tr = this.world.mapService.checkExitAndTransition(player);
-      if (tr) {
-        player.mapId = tr.toMap;
-        player.x = tr.x;
-        player.y = tr.y;
+      // Se origem mudou, marcar map para envio (coalescido)
+      this.markViewportDirty(player);
+      moved = true;
 
-        const newMap = this.world.mapService.getMap(player.mapId);
-        this.world.sendTo(player, {
-          type: 'mt',
-          s: 1,
-          m: this.env.DEFAULT_SONG,
-          w: newMap.width,
-          h: newMap.height,
-          t: newMap.title || newMap.id,
-          n: newMap.id,
-          c: this.env.DEFAULT_CAVE_WALL,
-          f: this.env.DEFAULT_CAVE_FLOOR
-        });
-
-        // Força novo chunk assim que permitido pela taxa
-        player._lastViewOX = undefined;
-        player._lastViewOY = undefined;
-        this.markViewportDirty(player);
-
-        // Teleporte do player
-        this.world.sendTo(player, { type: 'pos', x: player.x, y: player.y, t: 1 });
-      } else {
-        // Se origem mudou, marcar map para envio (coalescido)
-        this.markViewportDirty(player);
-      }
+      // IMPORTANTE: Sem transições entre mapas — não chamamos checkExitAndTransition
     }
 
     // 3) Ao final do tick, flush uma vez (coalescido)
     if (moved) {
-      this.flushViewportIfDirty(player, now); // envia último chunk necessário
-      this.markSnapshotDirty(player);         // sinaliza snapshot
-      this.flushSnapshotIfDirty(player, now); // respeitando taxa
+      this.flushViewportIfDirty(player, now);
+      this.markSnapshotDirty(player);
+      this.flushSnapshotIfDirty(player, now);
     }
   }
 

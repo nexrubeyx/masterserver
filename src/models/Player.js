@@ -14,7 +14,7 @@ export async function createPlayer({ userId, name, mapId, x, y, appearance, spee
     mapId,
     x,
     y,
-    speed: Number.isFinite(speed) ? speed : undefined, // persiste se informado
+    speed: Number.isFinite(speed) ? speed : 350, // persiste se informado
     inventory: [],
     appearance,
     createdAt: new Date(),
