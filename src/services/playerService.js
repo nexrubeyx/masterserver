@@ -1,4 +1,5 @@
 import { savePlayerPosition } from '../models/Player.js';
+import { sendMapObjectSpawnsToPlayer } from './mapObjectsLoader.js';
 
 export class PlayerService {
   constructor(env, logger, world) {
@@ -76,6 +77,9 @@ export class PlayerService {
       this.env.MAP_VIEW_RADIUS_Y
     );
     this.world.sendTo(player, { type: 'map', x: player.x, y: player.y, tiles });
+
+    // Chama o envio dos objetos animados do mapa para o jogador
+    sendMapObjectSpawnsToPlayer(player, map, this.world);
   }
 
   markSnapshotDirty(player) {

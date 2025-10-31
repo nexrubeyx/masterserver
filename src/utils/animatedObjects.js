@@ -1,15 +1,13 @@
-// Helpers para construir pacotes de objeto animado (2 frames) e colocar no mapa
-
-function buildAnimatedObjTplPacket(tpl, frameA, frameB, options = {}) {
+export function buildAnimatedObjTplPacket(tpl, frameA, frameB, options = {}) {
   const {
     name = "Animated Object",
     desc = "2-frame animation",
     stack = 0,
     pickup = 0,
-    block = 0,
-    tint,     // "RRGGBB" ex.: "00AAFF"
-    alpha,    // ex.: 0.9
-    offsetY,  // ex.: 6
+    block = 1,
+    tint,
+    alpha,
+    offsetY,
   } = options;
 
   const partA = [
@@ -20,7 +18,7 @@ function buildAnimatedObjTplPacket(tpl, frameA, frameB, options = {}) {
   ].filter(Boolean).join(",");
 
   const partB = [
-    `${frameB}a`, // sufixo 'a' envia para anim2_container (frame B)
+    `${frameB}a`,
     tint ? `t|${tint}|` : null,
     typeof alpha === "number" ? `q|${alpha}|` : null,
     typeof offsetY === "number" ? `o|${offsetY}|` : null,
@@ -34,21 +32,11 @@ function buildAnimatedObjTplPacket(tpl, frameA, frameB, options = {}) {
     stack,
     pickup,
     block,
-    spr: frameA,                // base; negativo = tileset, positivo = itemset
-    build: `${partA},${partB}`, // dois frames; o segundo tem 'a'
+    spr: frameA,
+    build: `${partA},${partB}`,
   };
 }
 
-function buildPlaceObjectPacket(x, y, tpl) {
+export function buildPlaceObjectPacket(x, y, tpl) {
   return { type: "o", x, y, d: tpl };
 }
-
-function buildRemoveObjectPacket(x, y) {
-  return { type: "o", x, y, d: "" };
-}
-
-module.exports = {
-  buildAnimatedObjTplPacket,
-  buildPlaceObjectPacket,
-  buildRemoveObjectPacket,
-};
