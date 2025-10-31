@@ -1,0 +1,26 @@
+{
+  "name": "ml-compatible-server",
+  "version": "1.0.0",
+  "description": "Servidor Node.js 22 (JavaScript puro) compatível com o client ML fornecido, usando MongoDB, WebSocket e mapas em JSON.",
+  "main": "src/server.js",
+  "type": "module",
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "NODE_ENV=development node --watch src/server.js",
+    "lint": "node -e \"console.log('Use seu linter favorito localmente, este projeto é JS puro sem TS')\""
+  },
+  "dependencies": {
+    "ajv": "^8.17.1",
+    "bcryptjs": "^2.4.3",
+    "dotenv": "^16.4.5",
+    "mongodb": "^6.9.0",
+    "pino": "^9.3.2",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "pino-pretty": "^13.1.2"
+  }
+}

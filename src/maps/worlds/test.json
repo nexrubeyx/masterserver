@@ -1,0 +1,13 @@
+{
+  "id": "caverealm",
+  "title": "Cave Realm",
+  "width": 256,
+  "height": 256,
+  "neighbors": {
+    "north": "caverealm_north",
+    "south": "caverealm_south",
+    "west": "caverealm_west",
+    "east": "caverealm_east"
+  },
+  "fill": 73
+}
