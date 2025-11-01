@@ -170,6 +170,27 @@ export const schemaByType = {
     required: ['type'],
     properties: { type: { const: 'P' } },
     additionalProperties: false
+  },
+  
+  /**
+   * Mensagem 'pickup' - Coletar objeto do mundo
+   * Cliente envia quando jogador interage com objeto
+   * 
+   * Campos:
+   * - type: 'pickup' (constante)
+   * - x, y: posição do objeto no mapa
+   * - tpl: template do objeto (ex: 'stone', 'wood', 'bush')
+   */
+  pickup: {
+    type: 'object',
+    required: ['type', 'x', 'y', 'tpl'],
+    properties: {
+      type: { const: 'pickup' },
+      x: { type: 'integer', minimum: -99999, maximum: 99999 },  // Posição X
+      y: { type: 'integer', minimum: -99999, maximum: 99999 },  // Posição Y
+      tpl: { type: 'string', maxLength: 64 }                     // Template do objeto
+    },
+    additionalProperties: false
   }
 };
 
