@@ -81,9 +81,9 @@ export class ChatService {
    * 
    * Comportamento:
    * 1. Para o movimento do jogador
-   * 2. Salva a posição atual no banco de dados
-   * 3. Envia mensagem de despedida
-   * 4. Desconecta o jogador do servidor
+   * 2. Envia mensagem de despedida
+   * 3. Desconecta o jogador do servidor imediatamente
+   * 4. Salva a posição atual no banco de dados
    */
   async handleQuit(player) {
     try {
@@ -93,19 +93,19 @@ export class ChatService {
       // Para o movimento do jogador
       this.world.playerService.stopMoving(player);
       
-      // Salva a posição do jogador no banco de dados
-      await this.world.playerService.persistPosition(player);
-      
-      this.logger.info({ player: player.name, x: player.x, y: player.y }, 'Jogador usou /quit e foi salvo');
-      
-      // Procura a conexão WebSocket do jogador e desconecta
+      // Procura a conexão WebSocket do jogador e desconecta IMEDIATAMENTE
       for (const [ws, session] of this.world.sessions) {
         if (session.player === player) {
-          // Fecha a conexão WebSocket
+          // Fecha a conexão WebSocket ANTES de salvar
           ws.close(1000, 'Logout via /quit');
           break;
         }
       }
+      
+      // Salva a posição do jogador no banco de dados APÓS desconectar
+      await this.world.playerService.persistPosition(player);
+      
+      this.logger.info({ player: player.name, x: player.x, y: player.y }, 'Jogador usou /quit e foi salvo');
     } catch (err) {
       this.logger.error({ err }, 'Erro ao processar /quit');
       // Tenta enviar mensagem de erro, mas não falha se não conseguir
