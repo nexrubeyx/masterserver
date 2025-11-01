@@ -17,6 +17,7 @@ import { World } from './state/world.js';
 import http from 'http';
 import https from 'https';
 import { loadTLSCredentials } from './config/tls.js';
+import { initializeDefaultUsers } from './services/defaultUsersService.js';
 
 /**
  * Função principal que inicializa todo o servidor
@@ -25,11 +26,12 @@ import { loadTLSCredentials } from './config/tls.js';
  * 1. Carrega variáveis de ambiente (.env)
  * 2. Cria o sistema de logging
  * 3. Conecta ao MongoDB e configura índices
- * 4. Cria o objeto World que gerencia todos os jogadores e mapas
- * 5. Configura servidor HTTPS/WSS se TLS estiver habilitado
- * 6. Cria servidor WebSocket para comunicação com clientes
- * 7. Configura redirecionamento HTTP -> HTTPS (opcional)
- * 8. Registra handlers para encerramento gracioso do servidor
+ * 4. Inicializa usuários padrão (admin, tester, etc) se não existirem
+ * 5. Cria o objeto World que gerencia todos os jogadores e mapas
+ * 6. Configura servidor HTTPS/WSS se TLS estiver habilitado
+ * 7. Cria servidor WebSocket para comunicação com clientes
+ * 8. Configura redirecionamento HTTP -> HTTPS (opcional)
+ * 9. Registra handlers para encerramento gracioso do servidor
  */
 async function main() {
   // Carrega todas as variáveis de ambiente do arquivo .env
@@ -40,6 +42,9 @@ async function main() {
 
   // Conecta ao banco de dados MongoDB
   await connectMongo(env, logger);
+
+  // Inicializa usuários padrão (admin, tester, etc) se não existirem
+  await initializeDefaultUsers(env, logger);
 
   // Cria o objeto World que gerencia todo o estado do jogo (jogadores, mapas, etc)
   const world = new World(env, logger);
