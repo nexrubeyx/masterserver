@@ -107,11 +107,15 @@ export class ChatService {
         }
       }
     } catch (err) {
-      this.logger.error({ err: err.message, stack: err.stack }, 'Erro ao processar /quit');
+      this.logger.error({ err }, 'Erro ao processar /quit');
       // Tenta enviar mensagem de erro, mas não falha se não conseguir
+      // (conexão pode já estar fechada ou em estado de erro)
       try {
         this.world.sendTo(player, { type: 'message', text: 'Erro ao salvar. Tente novamente.' });
-      } catch {}
+      } catch (sendErr) {
+        // Ignora erro ao enviar mensagem - conexão pode já estar fechada
+        this.logger.debug({ err: sendErr.message }, 'Não foi possível enviar mensagem de erro ao jogador');
+      }
     }
   }
 
