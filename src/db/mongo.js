@@ -75,6 +75,7 @@ export function getDB() {
  * Índices criados:
  * - users.username: Índice único para garantir usernames únicos
  * - players.userId: Índice único para garantir um personagem por usuário
+ * - maps.id: Índice único para garantir IDs de mapas únicos
  * 
  * Índices melhoram a performance de consultas e garantem integridade dos dados.
  * Esta função é chamada automaticamente durante a inicialização.
@@ -91,4 +92,8 @@ export async function ensureIndexes() {
   // Cria índice único no campo userId da coleção players
   // Isso garante que cada usuário tenha apenas um personagem
   await db.collection('players').createIndex({ userId: 1 }, { unique: true });
+  
+  // Cria índice único no campo id da coleção maps
+  // Isso garante que cada mapa tenha um ID único
+  await db.collection('maps').createIndex({ id: 1 }, { unique: true });
 }
