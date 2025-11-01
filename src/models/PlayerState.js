@@ -60,14 +60,19 @@ export async function savePlayerState({
   if (mapId !== undefined) $set.mapId = mapId;
   if (x !== undefined) $set.x = x;
   if (y !== undefined) $set.y = y;
-  if (typeof dir === 'number') $set.dir = dir;           // novo campo opcional
+  if (typeof dir === 'number') $set.dir = dir;           // optional direction field
   if (typeof level === 'number') $set.level = level;
   if (Array.isArray(inventory)) $set.inventory = inventory;
   if (appearance && typeof appearance === 'object') $set.appearance = appearance;
   if (typeof speed === 'number') $set.speed = speed;
 
-  await db.collection('players').updateOne(
+  const result = await db.collection('players').updateOne(
     { _id: playerId },
     { $set }
   );
+  
+  // Log warning if player document wasn't found
+  if (result.matchedCount === 0) {
+    console.warn(`Failed to save player state: player ${playerId} not found`);
+  }
 }

@@ -34,6 +34,12 @@ export const PERMISSIONS = Object.freeze({
  */
 export function hasPermission(user, minLevel) {
   const lvl = typeof user?.permission === 'number' ? user.permission : PERMISSIONS.PLAYER;
+  
+  // Log when falling back to default permission (helps debug permission issues)
+  if (typeof user?.permission !== 'number' && user) {
+    console.debug(`User ${user.username || user._id} missing permission field, defaulting to PLAYER`);
+  }
+  
   return lvl >= minLevel;
 }
 

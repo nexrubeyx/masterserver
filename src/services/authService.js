@@ -143,8 +143,9 @@ async function ensurePlayer(env, logger, { username, isGuest, email, userDoc }) 
   
   // Garante que o usuário tem permission default (1 = PLAYER)
   // Isso é idempotente - só atualiza se permission não existir
+  // Note: Guest users have string IDs (guest:username), real users have MongoDB ObjectIds
   if (userDoc._id && typeof userDoc._id === 'object') {
-    // É um ObjectId real do MongoDB, não um guest
+    // Real MongoDB user (has ObjectId _id, not a string guest ID)
     await ensureUserPermissionDefault(userDoc._id, PERMISSIONS.PLAYER);
     // Atualiza o objeto userDoc em memória se não tinha permission
     if (typeof userDoc.permission !== 'number') {
