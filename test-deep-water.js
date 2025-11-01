@@ -162,17 +162,20 @@ test('test2.json exists and is valid JSON', () => {
 test('test2 map has lake with correct tile types', () => {
   const json = JSON.parse(fs.readFileSync('src/maps/worlds/test2.json', 'utf8'));
   
-  // Check center (should be animated)
-  assertEquals(json.tiles[7][7], 325, 'Center tile is animated (325)');
+  // Check center (should be animated deep water)
+  assertEquals(json.tiles[7][7], 325, 'Center tile is animated deep water (325)');
   
-  // Check a deep static tile
-  assertEquals(json.tiles[7][6], 325, 'Deep water tile exists');
+  // Check a deep static tile (inner ring)
+  assertEquals(json.tiles[6][3], 248, 'Inner ring has deep water static (248)');
   
-  // Check a shallow tile
-  assertEquals(json.tiles[5][2], 36, 'Shallow water tile exists');
+  // Check a shallow water tile (outer ring)
+  assertEquals(json.tiles[5][2], 36, 'Outer ring has shallow water (36)');
   
   // Check ground tile
-  assertEquals(json.tiles[1][1], 22, 'Ground tile exists');
+  assertEquals(json.tiles[1][1], 22, 'Ground tile exists (22)');
+  
+  // Verify another animated tile
+  assertEquals(json.tiles[7][6], 325, 'Core area has animated deep water (325)');
 });
 
 // Summary
