@@ -107,8 +107,11 @@ export class ChatService {
         }
       }
     } catch (err) {
-      this.logger.error({ err: String(err) }, 'Erro ao processar /quit');
-      this.world.sendTo(player, { type: 'message', text: 'Erro ao salvar. Tente novamente.' });
+      this.logger.error({ err: err.message, stack: err.stack }, 'Erro ao processar /quit');
+      // Tenta enviar mensagem de erro, mas não falha se não conseguir
+      try {
+        this.world.sendTo(player, { type: 'message', text: 'Erro ao salvar. Tente novamente.' });
+      } catch {}
     }
   }
 
