@@ -158,6 +158,10 @@ export class World {
    * Chamado após login bem-sucedido para registrar o jogador no mundo.
    * Inicializa todos os campos de estado necessários para o jogador.
    * 
+   * IMPORTANTE: Se já existe uma sessão ativa para este userId, ela será
+   * desconectada para garantir que cada usuário tenha apenas uma sessão ativa.
+   * Isso previne jogadores duplicados no mapa.
+   * 
    * @param {WebSocket} ws - Conexão WebSocket do jogador
    * @param {Object} params - Dados da sessão
    * @param {Object} params.user - Documento do usuário
@@ -170,6 +174,39 @@ export class World {
    * - _viewDirty, _snapshotDirty: flags de rede
    */
   attachSession(ws, { user, player }) {
+    // === PREVENÇÃO DE MÚLTIPLAS SESSÕES ===
+    // Procura se já existe uma sessão ativa para este userId
+    // Se existir, desconecta a antiga (mantém apenas a mais recente)
+    // 
+    // NOTA: Esta é uma busca O(n) nas sessões ativas. Para otimização futura,
+    // poderia-se manter um Map separado userId->session para lookup O(1).
+    // Porém, este código só executa no login (não no hot path) e a maioria
+    // dos servidores terá <1000 sessões simultâneas, tornando o impacto mínimo.
+    for (const [existingWs, existingSession] of this.sessions) {
+      // Compara IDs convertendo ambos para string para garantir compatibilidade
+      // (user._id pode ser ObjectId do MongoDB ou string para guests)
+      if (String(existingSession.user._id) === String(user._id)) {
+        this.logger.info(
+          { user: user.username, oldSessionId: existingSession.player.sessionId },
+          'Desconectando sessão anterior do mesmo usuário'
+        );
+        
+        // Fecha a conexão antiga antes de criar a nova
+        // handleDisconnect será chamado automaticamente pelo evento 'close'
+        try {
+          existingWs.close(1000, 'Nova sessão iniciada');
+        } catch (err) {
+          // Se falhar ao fechar, loga o erro e força desconexão manual
+          // Pino logger suporta objetos de erro diretamente
+          this.logger.warn({ err }, 'Erro ao fechar conexão existente');
+          this.handleDisconnect(existingWs);
+        }
+        
+        // Só pode haver uma sessão por userId, então podemos parar aqui
+        break;
+      }
+    }
+    
     // Gera ID único para esta sessão (incrementa sempre)
     const sessionId = String(this._nextSessionId++);
     player.sessionId = sessionId;
@@ -217,22 +254,34 @@ export class World {
    * 
    * Chamado quando uma conexão WebSocket é fechada.
    * 
+   * NOTA: Este método é idempotente - pode ser chamado múltiplas vezes
+   * com a mesma conexão sem efeitos colaterais. A primeira chamada processa
+   * a desconexão e remove a sessão; chamadas subsequentes retornam imediatamente.
+   * 
    * Processo:
    * 1. Para movimento do jogador
-   * 2. Salva posição no banco de dados (async, não bloqueia)
-   * 3. Remove das estruturas de dados
-   * 4. Registra no log
+   * 2. Notifica outros jogadores no mapa sobre a remoção
+   * 3. Salva posição no banco de dados (async, não bloqueia)
+   * 4. Remove das estruturas de dados
+   * 5. Registra no log
    * 
    * @param {WebSocket} ws - Conexão que foi fechada
    */
   handleDisconnect(ws) {
     const session = this.sessions.get(ws);
-    if (!session) return;  // Sem sessão = nada a fazer
+    if (!session) return;  // Sem sessão = nada a fazer (já processado ou nunca existiu)
     
     const { player, user } = session;
 
     // Para movimento se estiver movendo
     this.playerService.stopMoving(player);
+    
+    // Notifica outros jogadores no mesmo mapa que este jogador saiu
+    // Envia pacote de remoção para que o cliente remova o sprite
+    this.sendToOthersInMap(player, {
+      type: 'p_remove',
+      id: String(player.sessionId)
+    });
     
     // Salva posição no banco (não bloqueia, apenas registra erro se falhar)
     this.playerService.persistPosition(player).catch(() => {});
