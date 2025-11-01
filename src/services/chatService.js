@@ -51,7 +51,10 @@ export class ChatService {
 
     // Comando /quit: salva o jogador e desconecta
     if (text.startsWith('/quit')) {
-      this.handleQuit(player);
+
+      this.world.sendTo(player, { type: 'message', text: "<strong><span style='color:#ffff00'>See you later!</span></strong>" });
+      this.world.sendTo(player, { type: 'quit', text: 'bubye' });
+      
       return;
     }
 
@@ -95,45 +98,6 @@ export class ChatService {
    * 
    * @param {Object} player - Jogador que enviou o comando
    * 
-   * Comportamento:
-   * 1. Para o movimento do jogador
-   * 2. Envia mensagem de despedida
-   * 3. Desconecta o jogador do servidor imediatamente
-   * 4. Salva a posição atual no banco de dados
-   */
-  async handleQuit(player) {
-    try {
-      // Envia mensagem de despedida ao jogador
-      this.world.sendTo(player, { type: 'message', text: 'Salvando e desconectando...' });
-      
-      // Para o movimento do jogador
-      this.world.playerService.stopMoving(player);
-      
-      // Procura a conexão WebSocket do jogador e desconecta IMEDIATAMENTE
-      for (const [ws, session] of this.world.sessions) {
-        if (session.player === player) {
-          // Fecha a conexão WebSocket ANTES de salvar
-          ws.close(1000, 'Logout via /quit');
-          break;
-        }
-      }
-      
-      // Salva a posição do jogador no banco de dados APÓS desconectar
-      await this.world.playerService.persistPosition(player);
-      
-      this.logger.info({ player: player.name, x: player.x, y: player.y }, 'Jogador usou /quit e foi salvo');
-    } catch (err) {
-      this.logger.error({ err }, 'Erro ao processar /quit');
-      // Tenta enviar mensagem de erro, mas não falha se não conseguir
-      // (conexão pode já estar fechada ou em estado de erro)
-      try {
-        this.world.sendTo(player, { type: 'message', text: 'Erro ao salvar. Tente novamente.' });
-      } catch (sendErr) {
-        // Ignora erro ao enviar mensagem - conexão pode já estar fechada
-        this.logger.debug({ err: sendErr.message }, 'Não foi possível enviar mensagem de erro ao jogador');
-      }
-    }
-  }
 
   /**
    * Escapa caracteres HTML para prevenir XSS
