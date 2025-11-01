@@ -61,3 +61,51 @@ export async function createUser({ username, passwordHash, email }) {
   // Retorna o documento com o _id gerado pelo MongoDB
   return { ...doc, _id: res.insertedId };
 }
+
+/**
+ * Define/atualiza o nível de permissão de um usuário
+ * 
+ * @param {string} userId - ID do usuário (_id)
+ * @param {number} level - Nível de permissão (1=PLAYER, 2=CM, 3=GM, 4=MASTER)
+ * @returns {Promise<void>}
+ * 
+ * Usado por administradores para promover/rebaixar usuários.
+ */
+export async function setUserPermission(userId, level) {
+  const db = getDB();
+  await db.collection('users').updateOne(
+    { _id: userId },
+    { $set: { permission: level, updatedAt: new Date() } }
+  );
+}
+
+/**
+ * Garante que o usuário tenha um permission default se não tiver ainda
+ * 
+ * @param {string} userId - ID do usuário (_id)
+ * @param {number} defaultLevel - Nível padrão a definir (geralmente 1 = PLAYER)
+ * @returns {Promise<void>}
+ * 
+ * Esta função só atualiza usuários que NÃO têm o campo permission.
+ * Usada para garantir retrocompatibilidade com usuários antigos.
+ */
+export async function ensureUserPermissionDefault(userId, defaultLevel) {
+  const db = getDB();
+  await db.collection('users').updateOne(
+    { _id: userId, permission: { $exists: false } },
+    { $set: { permission: defaultLevel, updatedAt: new Date() } }
+  );
+}
+
+/**
+ * Obtém usuário pelo ID
+ * 
+ * @param {string} userId - ID do usuário (_id)
+ * @returns {Promise<Object|null>} Documento do usuário ou null
+ * 
+ * Útil quando precisamos buscar um usuário específico por ID.
+ */
+export async function getUserById(userId) {
+  const db = getDB();
+  return db.collection('users').findOne({ _id: userId });
+}

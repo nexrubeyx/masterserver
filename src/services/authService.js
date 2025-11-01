@@ -20,8 +20,9 @@
 
 import bcrypt from 'bcryptjs';
 import { b64decode } from '../utils/base64.js';
-import { findUserByUsername, createUser } from '../models/User.js';
+import { findUserByUsername, createUser, ensureUserPermissionDefault } from '../models/User.js';
 import { createPlayer, getPlayerByUserId } from '../models/Player.js';
+import { PERMISSIONS } from '../constants/permissions.js';
 
 // Número de rounds do bcrypt para hashing de senhas
 // Maior = mais seguro mas mais lento (10 é um bom balanço)
@@ -138,6 +139,18 @@ async function ensurePlayer(env, logger, { username, isGuest, email, userDoc }) 
   // Se não tem userDoc (guests), cria um stub temporário
   if (!userDoc) {
     userDoc = { _id: `guest:${username}`, username, email: null };
+  }
+  
+  // Garante que o usuário tem permission default (1 = PLAYER)
+  // Isso é idempotente - só atualiza se permission não existir
+  // Note: Guest users have string IDs (guest:username), real users have MongoDB ObjectIds
+  if (userDoc._id && typeof userDoc._id === 'object') {
+    // Real MongoDB user (has ObjectId _id, not a string guest ID)
+    await ensureUserPermissionDefault(userDoc._id, PERMISSIONS.PLAYER);
+    // Atualiza o objeto userDoc em memória se não tinha permission
+    if (typeof userDoc.permission !== 'number') {
+      userDoc.permission = PERMISSIONS.PLAYER;
+    }
   }
   
   // Busca personagem existente para este usuário
