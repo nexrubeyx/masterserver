@@ -2,7 +2,8 @@
  * Serviço de Mapas - Carregamento e Gerenciamento de Mapas
  * 
  * Este serviço gerencia todos os mapas do jogo:
- * - Carrega arquivos JSON dos mapas na inicialização
+ * - Carrega mapas do MongoDB na inicialização
+ * - Verifica e atualiza mapas quando a versão muda no JSON
  * - Valida e normaliza dados dos mapas
  * - Fornece acesso aos mapas por ID
  * - Gera payloads de viewport (tiles visíveis)
@@ -11,6 +12,7 @@
  * Formato do JSON do mapa:
  * {
  *   "id": "overworld",
+ *   "version": 1,  // Versão do mapa (incrementar quando alterar)
  *   "title": "Mundo Principal",
  *   "width": 100,
  *   "height": 100,
@@ -29,6 +31,7 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { findAllMaps, upsertMap } from '../models/Map.js';
 
 /**
  * Obtém diretório raiz do projeto (src/)
@@ -79,23 +82,19 @@ export class MapService {
   }
 
   /**
-   * Carrega todos os mapas da pasta maps/worlds/
+   * Carrega todos os mapas do MongoDB ou JSON
    * 
    * Chamado durante a inicialização do servidor.
-   * Varre a pasta procurando arquivos .json e carrega cada um.
+   * 
+   * Fluxo:
+   * 1. Carrega mapas do MongoDB
+   * 2. Lê arquivos JSON da pasta maps/worlds/
+   * 3. Compara versões entre JSON e MongoDB
+   * 4. Atualiza MongoDB se versão do JSON for mais recente
+   * 5. Carrega mapas na memória
    * 
    * @returns {Promise<void>}
    * @throws {Error} Se algum mapa for inválido
-   * 
-   * Processo para cada mapa:
-   * 1. Lê arquivo JSON (remove comentários)
-   * 2. Parseia e valida estrutura básica
-   * 3. Normaliza dados (preenche tiles faltando)
-   * 4. Armazena no Map interno
-   * 
-   * Formatos aceitos:
-   * - tiles: array 2D de números
-   * - fill: número único para preencher todo o mapa
    */
   async loadAll() {
     // Caminho para pasta de mapas: src/maps/worlds/
@@ -104,15 +103,20 @@ export class MapService {
     // Cria pasta se não existir
     if (!fs.existsSync(mapsDir)) fs.mkdirSync(mapsDir, { recursive: true });
 
-    // Lista todos os arquivos .json na pasta
+    // === PASSO 1: Carrega mapas do MongoDB ===
+    const dbMaps = await findAllMaps();
+    const dbMapsByID = new Map(dbMaps.map(m => [m.id, m]));
+    
+    this.logger.info({ count: dbMaps.length }, 'Mapas carregados do MongoDB');
+
+    // === PASSO 2: Lê arquivos JSON ===
     const files = fs.readdirSync(mapsDir).filter(f => f.endsWith('.json'));
     
-    // Avisa se não encontrou mapas
     if (!files.length) {
       this.logger.warn({ mapsDir }, 'Nenhum arquivo de mapa encontrado. Crie mapas em src/maps/worlds/*.json');
     }
 
-    // Processa cada arquivo de mapa
+    // === PASSO 3: Processa cada arquivo JSON ===
     for (const f of files) {
       const full = path.join(mapsDir, f);
       
@@ -133,71 +137,121 @@ export class MapService {
       // Usa nome do arquivo como ID se não especificado
       if (!json.id) json.id = path.basename(f, '.json');
       
+      // version é obrigatório agora
+      if (typeof json.version !== 'number') {
+        this.logger.warn({ id: json.id, file: f }, 'Mapa sem versão definida, usando versão 1');
+        json.version = 1;
+      }
+      
       // width e height são obrigatórios
       if (typeof json.width !== 'number' || typeof json.height !== 'number') {
         throw new Error(`Mapa ${json.id} sem width/height válidos`);
       }
 
-      // === GERAÇÃO/NORMALIZAÇÃO DE TILES ===
+      // === VERIFICA SE PRECISA ATUALIZAR NO MONGODB ===
+      const dbMap = dbMapsByID.get(json.id);
+      let shouldUpdate = false;
       
-      // Se não tem array de tiles mas tem "fill", gera tiles preenchidos
-      if (!Array.isArray(json.tiles) && typeof json.fill === 'number') {
-        // Cria array 2D: height linhas x width colunas, todas com valor fill
-        json.tiles = Array.from({ length: json.height }, () =>
-          Array.from({ length: json.width }, () => json.fill)
+      if (!dbMap) {
+        // Mapa não existe no MongoDB - precisa inserir
+        this.logger.info({ id: json.id, version: json.version }, 'Novo mapa detectado, inserindo no MongoDB');
+        shouldUpdate = true;
+      } else if (dbMap.version !== json.version) {
+        // Versão diferente - precisa atualizar
+        this.logger.info(
+          { id: json.id, oldVersion: dbMap.version, newVersion: json.version },
+          'Versão do mapa alterada, atualizando MongoDB'
         );
+        shouldUpdate = true;
       }
 
-      // Se ainda não tem tiles, cria array vazio
-      if (!Array.isArray(json.tiles)) json.tiles = [];
-      
-      // === NORMALIZAÇÃO DE LINHAS ===
-      // Garante que tem exatamente 'height' linhas
-      if (json.tiles.length < json.height) {
-        // Faltam linhas - adiciona linhas vazias (preenchidas com 0)
-        const missing = json.height - json.tiles.length;
-        for (let i = 0; i < missing; i++) {
-          json.tiles.push(Array.from({ length: json.width }, () => 0));
-        }
-      } else if (json.tiles.length > json.height) {
-        // Sobram linhas - trunca
-        json.tiles.length = json.height;
-      }
-      
-      // === NORMALIZAÇÃO DE COLUNAS ===
-      // Para cada linha, garante que tem exatamente 'width' colunas
-      for (let y = 0; y < json.height; y++) {
-        // Se linha não é array, cria array vazio
-        if (!Array.isArray(json.tiles[y])) json.tiles[y] = [];
-        
-        // Se faltam colunas, adiciona zeros
-        if (json.tiles[y].length < json.width) {
-          const miss = json.width - json.tiles[y].length;
-          for (let k = 0; k < miss; k++) json.tiles[y].push(0);
-        } 
-        // Se sobram colunas, trunca
-        else if (json.tiles[y].length > json.width) {
-          json.tiles[y].length = json.width;
-        }
-        
-        // === NORMALIZAÇÃO DE VALORES ===
-        // Garante que cada tile é um número válido
-        for (let x = 0; x < json.width; x++) {
-          const v = json.tiles[y][x];
-          // Se não é número finito, usa 0
-          json.tiles[y][x] = Number.isFinite(v) ? v : 0;
-        }
+      // Se precisa atualizar, normaliza e salva
+      if (shouldUpdate) {
+        this.normalizeMapData(json);
+        await upsertMap(json);
+        this.logger.debug({ id: json.id, version: json.version }, 'Mapa salvo no MongoDB');
+      } else {
+        // Usa a versão do MongoDB (não precisa normalizar de novo)
+        json = dbMap;
+        this.logger.debug({ id: json.id, version: json.version }, 'Mapa carregado do MongoDB (versão atual)');
       }
 
       // Armazena mapa no Map interno
       this.maps.set(json.id, json);
-      
-      // Loga sucesso do carregamento
-      this.logger.debug({ id: json.id, w: json.width, h: json.height }, 'Mapa carregado');
+    }
+
+    // === PASSO 4: Carrega mapas do MongoDB que não estão nos JSONs ===
+    // Isso permite ter mapas criados apenas no MongoDB
+    for (const dbMap of dbMaps) {
+      if (!this.maps.has(dbMap.id)) {
+        this.maps.set(dbMap.id, dbMap);
+        this.logger.debug({ id: dbMap.id }, 'Mapa carregado do MongoDB (sem JSON correspondente)');
+      }
     }
 
     // Loga total de mapas carregados
-    this.logger.info({ count: this.maps.size }, 'Mapas carregados');
+    this.logger.info({ count: this.maps.size }, 'Mapas carregados na memória');
+  }
+
+  /**
+   * Normaliza dados do mapa
+   * 
+   * Chamado antes de salvar um mapa no MongoDB para garantir que os dados
+   * estão em formato consistente e válido.
+   * 
+   * @param {Object} json - Dados do mapa a normalizar (modificado in-place)
+   */
+  normalizeMapData(json) {
+    // === GERAÇÃO/NORMALIZAÇÃO DE TILES ===
+    
+    // Se não tem array de tiles mas tem "fill", gera tiles preenchidos
+    if (!Array.isArray(json.tiles) && typeof json.fill === 'number') {
+      // Cria array 2D: height linhas x width colunas, todas com valor fill
+      json.tiles = Array.from({ length: json.height }, () =>
+        Array.from({ length: json.width }, () => json.fill)
+      );
+    }
+
+    // Se ainda não tem tiles, cria array vazio
+    if (!Array.isArray(json.tiles)) json.tiles = [];
+    
+    // === NORMALIZAÇÃO DE LINHAS ===
+    // Garante que tem exatamente 'height' linhas
+    if (json.tiles.length < json.height) {
+      // Faltam linhas - adiciona linhas vazias (preenchidas com 0)
+      const missing = json.height - json.tiles.length;
+      for (let i = 0; i < missing; i++) {
+        json.tiles.push(Array.from({ length: json.width }, () => 0));
+      }
+    } else if (json.tiles.length > json.height) {
+      // Sobram linhas - trunca
+      json.tiles.length = json.height;
+    }
+    
+    // === NORMALIZAÇÃO DE COLUNAS ===
+    // Para cada linha, garante que tem exatamente 'width' colunas
+    for (let y = 0; y < json.height; y++) {
+      // Se linha não é array, cria array vazio
+      if (!Array.isArray(json.tiles[y])) json.tiles[y] = [];
+      
+      // Se faltam colunas, adiciona zeros
+      if (json.tiles[y].length < json.width) {
+        const miss = json.width - json.tiles[y].length;
+        for (let k = 0; k < miss; k++) json.tiles[y].push(0);
+      } 
+      // Se sobram colunas, trunca
+      else if (json.tiles[y].length > json.width) {
+        json.tiles[y].length = json.width;
+      }
+      
+      // === NORMALIZAÇÃO DE VALORES ===
+      // Garante que cada tile é um número válido
+      for (let x = 0; x < json.width; x++) {
+        const v = json.tiles[y][x];
+        // Se não é número finito, usa 0
+        json.tiles[y][x] = Number.isFinite(v) ? v : 0;
+      }
+    }
   }
 
   /**
