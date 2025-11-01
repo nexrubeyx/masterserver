@@ -65,17 +65,3 @@ export async function upsertMap(mapData) {
     { upsert: true }
   );
 }
-
-/**
- * Cria índice na coleção de mapas
- * 
- * Chamado durante a inicialização para garantir performance
- * 
- * @returns {Promise<void>}
- */
-export async function ensureMapIndexes() {
-  const db = getDB();
-  
-  // Índice único no campo id
-  await db.collection(COLLECTION).createIndex({ id: 1 }, { unique: true });
-}

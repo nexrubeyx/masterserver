@@ -151,6 +151,7 @@ export class MapService {
       // === VERIFICA SE PRECISA ATUALIZAR NO MONGODB ===
       const dbMap = dbMapsByID.get(json.id);
       let shouldUpdate = false;
+      let mapData = json; // Use a different variable to avoid reassignment confusion
       
       if (!dbMap) {
         // Mapa não existe no MongoDB - precisa inserir
@@ -167,17 +168,17 @@ export class MapService {
 
       // Se precisa atualizar, normaliza e salva
       if (shouldUpdate) {
-        this.normalizeMapData(json);
-        await upsertMap(json);
-        this.logger.debug({ id: json.id, version: json.version }, 'Mapa salvo no MongoDB');
+        this.normalizeMapData(mapData);
+        await upsertMap(mapData);
+        this.logger.debug({ id: mapData.id, version: mapData.version }, 'Mapa salvo no MongoDB');
       } else {
         // Usa a versão do MongoDB (não precisa normalizar de novo)
-        json = dbMap;
-        this.logger.debug({ id: json.id, version: json.version }, 'Mapa carregado do MongoDB (versão atual)');
+        mapData = dbMap;
+        this.logger.debug({ id: mapData.id, version: mapData.version }, 'Mapa carregado do MongoDB (versão atual)');
       }
 
       // Armazena mapa no Map interno
-      this.maps.set(json.id, json);
+      this.maps.set(mapData.id, mapData);
     }
 
     // === PASSO 4: Carrega mapas do MongoDB que não estão nos JSONs ===
