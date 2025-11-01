@@ -48,10 +48,10 @@ export const OBJECT_TEMPLATES = {
     tpl: 'bush',
     name: 'Arbusto',
     desc: 'Um arbusto decorativo.',
-    stack: 0,     // permite coexistir com outros objetos no mesmo tile
+    stack: 1,     // permite coexistir com outros objetos no mesmo tile
     pickup: 0,    // não coletável (mude para 1 se quiser coletar)
     block: 0,     // não bloqueia movimento (mude para 1 se quiser bloquear)
-    spr: 384,    // índice do tilesheet (tile16.png): col=5, linha=7
+    spr: -978,    // índice do tilesheet (tile16.png): col=5, linha=7
     build: 'o|2'  // desloca 2px para baixo para alinhar no chão
   }
 };

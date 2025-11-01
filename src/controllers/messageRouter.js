@@ -67,7 +67,9 @@ export function createMessageRouter(env, logger, world) {
         }
         
         // Obtém dados da sessão criada
-        const { player } = world.getSession(ws);
+        const session = world.getSession(ws);
+        if (!session) return; // attachSession recusou (personagem já online)
+        const { player } = session;
         const m = world.mapService.getMap(player.mapId);
 
         // === SEQUÊNCIA DE INICIALIZAÇÃO DO CLIENTE ===

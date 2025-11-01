@@ -37,28 +37,28 @@ export class World {
 
     // Serviço que gerencia mapas (carrega JSON, viewport, etc)
     this.mapService = new MapService(env, logger);
-    
+
     // Mapa de sessões ativas: WebSocket -> {ws, user, player}
     this.sessions = new Map();
-    
+
     // Mapa de jogadores ativos: sessionId -> player
     this.players = new Map();
 
     // Serviço que gerencia jogadores (movimento, snapshots, etc)
     this.playerService = new PlayerService(env, logger, this);
-    
+
     // Serviço que gerencia chat (mensagens, comandos, etc)
     this.chatService = new ChatService(env, logger, this);
-    
+
     // Serviço que gerencia objetos do mundo (stone, wood, bush, etc)
     this.objectService = new ObjectService(env, logger, this);
 
     // Próximo ID de sessão a ser atribuído (incrementa sempre)
     this._nextSessionId = 1000;
-    
+
     // Timer do game loop (setInterval)
     this._tickTimer = null;
-    
+
     // Timestamp do último tick (para calcular delta time)
     this._lastTickAt = Date.now();
   }
@@ -74,10 +74,10 @@ export class World {
   async init() {
     // Carrega todos os arquivos de mapa da pasta maps/worlds/
     await this.mapService.loadAll();
-    
+
     // Inicializa o serviço de objetos (carrega estado dos objetos)
     await this.objectService.init();
-    
+
     // Inicia o loop principal do jogo
     this.startGameLoop();
   }
@@ -96,17 +96,17 @@ export class World {
   startGameLoop() {
     // Intervalo do tick em milissegundos (50ms = 20 Hz)
     const TICK_MS = Number(this.env.TICK_MS || 50);
-    
+
     // Para timer anterior se existir (evita múltiplos loops)
     if (this._tickTimer) clearInterval(this._tickTimer);
-    
+
     // Inicializa timestamp do último tick
     this._lastTickAt = Date.now();
 
     // Cria interval que executa o tick periodicamente
     this._tickTimer = setInterval(() => {
       const now = Date.now();
-      
+
       // Calcula delta time (tempo decorrido desde último tick)
       const dt = now - this._lastTickAt;
       this._lastTickAt = now;
@@ -116,7 +116,7 @@ export class World {
         this.playerService.tickPlayer(player, dt);
       }
     }, TICK_MS);
-    
+
     this.logger.info({ TICK_MS }, 'Game loop iniciado');
   }
 
@@ -137,23 +137,23 @@ export class World {
   async shutdown() {
     // Para o game loop
     if (this._tickTimer) clearInterval(this._tickTimer);
-    
+
     // Processa cada sessão ativa
     for (const [ws, session] of this.sessions) {
       try {
         // Para movimento do jogador
         this.playerService.stopMoving(session.player);
-        
+
         // Salva posição no banco (não bloqueia shutdown)
         await this.playerService.persistPosition(session.player);
-      } catch {}
-      
-      try { 
+      } catch { }
+
+      try {
         // Fecha conexão WebSocket
-        ws.close(); 
-      } catch {}
+        ws.close();
+      } catch { }
     }
-    
+
     // Limpa mapas de sessões e jogadores
     this.sessions.clear();
     this.players.clear();
@@ -189,35 +189,19 @@ export class World {
     // poderia-se manter um Map separado userId->session para lookup O(1).
     // Porém, este código só executa no login (não no hot path) e a maioria
     // dos servidores terá <1000 sessões simultâneas, tornando o impacto mínimo.
+    // === BLOQUEIO DE LOGIN DUPLICADO ===
+    // Se já existe uma sessão ativa para este userId, rejeita o novo login
     for (const [existingWs, existingSession] of this.sessions) {
-      // Compara IDs convertendo ambos para string para garantir compatibilidade
-      // (user._id pode ser ObjectId do MongoDB ou string para guests)
-      if (String(existingSession.user._id) === String(user._id)) {
-        this.logger.info(
-          { user: user.username, oldSessionId: existingSession.player.sessionId },
-          'Desconectando sessão anterior do mesmo usuário'
-        );
-        
-        // Fecha a conexão antiga antes de criar a nova
-        // handleDisconnect será chamado automaticamente pelo evento 'close'
-        try {
-          existingWs.close(1000, 'Nova sessão iniciada');
-        } catch (err) {
-          // Se falhar ao fechar, loga o erro e força desconexão manual
-          // Pino logger suporta objetos de erro diretamente
-          this.logger.warn({ err }, 'Erro ao fechar conexão existente');
-          this.handleDisconnect(existingWs);
-        }
-        
-        // Só pode haver uma sessão por userId, então podemos parar aqui
-        break;
+      if (String(existingSession.user?._id) === String(user?._id)) {
+        this.sendRaw(ws, { type: 'logmsg', text: 'Already online.' });
+        return;
       }
     }
-    
+
     // Gera ID único para esta sessão (incrementa sempre)
     const sessionId = String(this._nextSessionId++);
     player.sessionId = sessionId;
-    
+
     // Garante que player tem nome e nível
     player.name = player.name || user.username;
     player.level = player.level || this.env.DEFAULT_LEVEL;
@@ -238,11 +222,11 @@ export class World {
 
     // Cria objeto de sessão completo
     const session = { ws, user, player };
-    
+
     // Registra em ambos os mapas
     this.sessions.set(ws, session);           // WebSocket -> sessão
     this.players.set(sessionId, player);      // sessionId -> player
-    
+
     this.logger.info({ user: user.username, sessionId, mapId: player.mapId }, 'Sessão anexada');
   }
 
@@ -277,26 +261,26 @@ export class World {
   handleDisconnect(ws) {
     const session = this.sessions.get(ws);
     if (!session) return;  // Sem sessão = nada a fazer (já processado ou nunca existiu)
-    
+
     const { player, user } = session;
 
     // Para movimento se estiver movendo
     this.playerService.stopMoving(player);
-    
+
     // Notifica outros jogadores no mesmo mapa que este jogador saiu
     // Envia pacote de remoção para que o cliente remova o sprite
     this.sendToOthersInMap(player, {
       type: 'p_remove',
       id: String(player.sessionId)
     });
-    
+
     // Salva posição no banco (não bloqueia, apenas registra erro se falhar)
-    this.playerService.persistPosition(player).catch(() => {});
-    
+    this.playerService.persistPosition(player).catch(() => { });
+
     // Remove das estruturas de dados
     this.players.delete(String(player.sessionId));
     this.sessions.delete(ws);
-    
+
     this.logger.info({ user: user.username, id: player.sessionId }, 'Sessão desconectada');
   }
 
@@ -317,12 +301,12 @@ export class World {
   sendRaw(ws, obj) {
     // Só envia se conexão está OPEN (readyState 1)
     if (ws.readyState !== 1) return;
-    
+
     try {
       // Backpressure guard - se buffer tem mais de 1MB, pula
       // Isso previne acumular mensagens se cliente está lento
       if (ws.bufferedAmount > 1_000_000) return;
-      
+
       // Serializa para JSON e envia
       ws.send(JSON.stringify(obj));
     } catch (err) {
@@ -386,7 +370,7 @@ export class World {
           continue;  // Pula o próprio jogador
         }
       }
-      
+
       this.sendRaw(ws, obj);
     }
   }

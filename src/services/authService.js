@@ -98,13 +98,12 @@ export async function handleLoginOrCreate(env, logger, payload) {
   else if (existing) {
     // Verifica se a conta tem senha (guests não têm)
     if (!existing.passwordHash) {
-      // conta convidado tentando logar com senha não existe
-      throw new Error('Conta de convidado não possui senha');
+      throw new Error('Invalid username or password.');
     }
     
     // Compara senha fornecida com hash armazenado
     const ok = await bcrypt.compare(passwordRaw, existing.passwordHash);
-    if (!ok) throw new Error('Senha inválida');
+    if (!ok) throw new Error('Invalid username or password.');
     
     // Senha correta - carrega ou cria personagem
     return await ensurePlayer(env, logger, {
@@ -117,7 +116,7 @@ export async function handleLoginOrCreate(env, logger, payload) {
   
   // CASO 3: Tentando logar mas usuário não existe e não forneceu email
   else {
-    throw new Error('Usuário não encontrado');
+    throw new Error('Invalid username or password.');
   }
 }
 
