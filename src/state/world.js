@@ -254,6 +254,10 @@ export class World {
    * 
    * Chamado quando uma conexão WebSocket é fechada.
    * 
+   * NOTA: Este método é idempotente - pode ser chamado múltiplas vezes
+   * com a mesma conexão sem efeitos colaterais. A primeira chamada processa
+   * a desconexão e remove a sessão; chamadas subsequentes retornam imediatamente.
+   * 
    * Processo:
    * 1. Para movimento do jogador
    * 2. Notifica outros jogadores no mapa sobre a remoção
@@ -265,7 +269,7 @@ export class World {
    */
   handleDisconnect(ws) {
     const session = this.sessions.get(ws);
-    if (!session) return;  // Sem sessão = nada a fazer
+    if (!session) return;  // Sem sessão = nada a fazer (já processado ou nunca existiu)
     
     const { player, user } = session;
 
