@@ -167,8 +167,8 @@ async function ensurePlayer(env, logger, { username, isGuest, email, userDoc }) 
     userId: userDoc._id,           // Vincula ao usuário
     name: username,                // Nome do personagem = username
     mapId: env.DEFAULT_MAP_ID,     // Mapa inicial (ex: 'overworld')
-    x: 10,                         // Posição X inicial
-    y: 10,                         // Posição Y inicial
+    x: env.DEFAULT_X,              // Posição X inicial (configurável via .env)
+    y: env.DEFAULT_Y,              // Posição Y inicial (configurável via .env)
     appearance                     // Aparência visual
   });
 

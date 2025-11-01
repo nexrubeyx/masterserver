@@ -63,6 +63,10 @@ export function loadEnv() {
     // === CONFIGURAÇÕES DE MAPA ===
     // ID do mapa onde novos jogadores aparecem
     DEFAULT_MAP_ID: process.env.DEFAULT_MAP_ID || 'overworld',
+    // Posição X inicial para novos jogadores
+    DEFAULT_X: parseInt(process.env.DEFAULT_X || '10', 10),
+    // Posição Y inicial para novos jogadores
+    DEFAULT_Y: parseInt(process.env.DEFAULT_Y || '10', 10),
     // Raio da viewport em tiles (horizontal)
     MAP_VIEW_RADIUS_X: parseInt(process.env.MAP_VIEW_RADIUS_X || '18', 10),
     // Raio da viewport em tiles (vertical)
