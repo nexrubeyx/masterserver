@@ -20,6 +20,7 @@
  */
 
 import { savePlayerPosition } from '../models/Player.js';
+import { savePlayerState } from '../models/PlayerState.js';
 import { sendMapObjectSpawnsToPlayer } from './mapObjectsLoader.js';
 import { isDeepWater } from '../constants/tiles.js';
 
@@ -433,5 +434,35 @@ export class PlayerService {
     
     // Chama model para atualizar no MongoDB
     await savePlayerPosition(player.dbId, player.mapId, player.x, player.y);
+  }
+
+  /**
+   * Persiste o ESTADO COMPLETO do jogador no banco de dados
+   * 
+   * Chamado quando:
+   * - Jogador desconecta
+   * - Servidor está encerrando
+   * 
+   * @param {Object} player - Jogador
+   * @returns {Promise<void>}
+   * 
+   * Salva todos os campos relevantes: mapId, x, y, dir, level,
+   * inventory, appearance, speed. Isso garante que o jogador
+   * retome exatamente onde parou no próximo login.
+   */
+  async persistFullState(player) {
+    if (!player?.dbId) return;
+
+    await savePlayerState({
+      playerId: player.dbId,
+      mapId: player.mapId,
+      x: player.x,
+      y: player.y,
+      dir: player.dir,
+      level: player.level,
+      inventory: player.inventory,
+      appearance: player.appearance,
+      speed: player.speed
+    });
   }
 }

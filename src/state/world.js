@@ -144,8 +144,8 @@ export class World {
         // Para movimento do jogador
         this.playerService.stopMoving(session.player);
 
-        // Salva posição no banco (não bloqueia shutdown)
-        await this.playerService.persistPosition(session.player);
+        // Salva estado completo no banco (não bloqueia shutdown)
+        await this.playerService.persistFullState(session.player);
       } catch { }
 
       try {
@@ -275,7 +275,7 @@ export class World {
     });
 
     // Salva posição no banco (não bloqueia, apenas registra erro se falhar)
-    this.playerService.persistPosition(player).catch(() => { });
+    this.playerService.persistFullState(player).catch(() => { });
 
     // Remove das estruturas de dados
     this.players.delete(String(player.sessionId));
