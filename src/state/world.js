@@ -158,6 +158,10 @@ export class World {
    * Chamado após login bem-sucedido para registrar o jogador no mundo.
    * Inicializa todos os campos de estado necessários para o jogador.
    * 
+   * IMPORTANTE: Se já existe uma sessão ativa para este userId, ela será
+   * desconectada para garantir que cada usuário tenha apenas uma sessão ativa.
+   * Isso previne jogadores duplicados no mapa.
+   * 
    * @param {WebSocket} ws - Conexão WebSocket do jogador
    * @param {Object} params - Dados da sessão
    * @param {Object} params.user - Documento do usuário
@@ -170,6 +174,30 @@ export class World {
    * - _viewDirty, _snapshotDirty: flags de rede
    */
   attachSession(ws, { user, player }) {
+    // === PREVENÇÃO DE MÚLTIPLAS SESSÕES ===
+    // Procura se já existe uma sessão ativa para este userId
+    // Se existir, desconecta a antiga (mantém apenas a mais recente)
+    for (const [existingWs, existingSession] of this.sessions) {
+      if (existingSession.user._id === user._id) {
+        this.logger.info(
+          { user: user.username, oldSessionId: existingSession.player.sessionId },
+          'Desconectando sessão anterior do mesmo usuário'
+        );
+        
+        // Fecha a conexão antiga antes de criar a nova
+        // handleDisconnect será chamado automaticamente pelo evento 'close'
+        try {
+          existingWs.close(1000, 'Nova sessão iniciada');
+        } catch (err) {
+          // Se falhar ao fechar, força desconexão manual
+          this.handleDisconnect(existingWs);
+        }
+        
+        // Só pode haver uma sessão por userId, então podemos parar aqui
+        break;
+      }
+    }
+    
     // Gera ID único para esta sessão (incrementa sempre)
     const sessionId = String(this._nextSessionId++);
     player.sessionId = sessionId;
@@ -219,9 +247,10 @@ export class World {
    * 
    * Processo:
    * 1. Para movimento do jogador
-   * 2. Salva posição no banco de dados (async, não bloqueia)
-   * 3. Remove das estruturas de dados
-   * 4. Registra no log
+   * 2. Notifica outros jogadores no mapa sobre a remoção
+   * 3. Salva posição no banco de dados (async, não bloqueia)
+   * 4. Remove das estruturas de dados
+   * 5. Registra no log
    * 
    * @param {WebSocket} ws - Conexão que foi fechada
    */
@@ -233,6 +262,13 @@ export class World {
 
     // Para movimento se estiver movendo
     this.playerService.stopMoving(player);
+    
+    // Notifica outros jogadores no mesmo mapa que este jogador saiu
+    // Envia pacote de remoção para que o cliente remova o sprite
+    this.sendToOthersInMap(player, {
+      type: 'p_remove',
+      id: String(player.sessionId)
+    });
     
     // Salva posição no banco (não bloqueia, apenas registra erro se falhar)
     this.playerService.persistPosition(player).catch(() => {});
