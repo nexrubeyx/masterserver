@@ -49,13 +49,16 @@ export async function findAllMaps() {
 /**
  * Salva ou atualiza um mapa no MongoDB
  * 
- * @param {Object} mapData - Dados do mapa (deve incluir id e version)
+ * NOTA: Esta função modifica o objeto mapData in-place, adicionando o campo updatedAt.
+ * Isso é intencional para manter a referência ao objeto que será usado posteriormente.
+ * 
+ * @param {Object} mapData - Dados do mapa (deve incluir id e version) - será modificado!
  * @returns {Promise<Object>} Resultado da operação
  */
 export async function upsertMap(mapData) {
   const db = getDB();
   
-  // Adiciona timestamp de atualização
+  // Adiciona timestamp de atualização (modifica o objeto original)
   mapData.updatedAt = new Date();
   
   // Usa upsert para criar ou atualizar o mapa

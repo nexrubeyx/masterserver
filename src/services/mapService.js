@@ -158,7 +158,9 @@ export class MapService {
       // === VERIFICA SE PRECISA ATUALIZAR NO MONGODB ===
       const dbMap = dbMapsByID.get(json.id);
       let shouldUpdate = false;
-      let finalMapData = json; // Will hold the final map data to use (from JSON or MongoDB)
+      // finalMapData will point to either normalized JSON or MongoDB version
+      // NOTA: json object may be modified during normalization - this is intentional
+      let finalMapData = json; 
       
       if (!dbMap) {
         // Mapa não existe no MongoDB - precisa inserir
@@ -220,7 +222,10 @@ export class MapService {
    * Chamado antes de salvar um mapa no MongoDB para garantir que os dados
    * estão em formato consistente e válido.
    * 
-   * @param {Object} json - Dados do mapa a normalizar (modificado in-place)
+   * NOTA: Esta função modifica o objeto json in-place. Isso é intencional
+   * para evitar cópias profundas de arrays grandes de tiles.
+   * 
+   * @param {Object} json - Dados do mapa a normalizar (modificado in-place!)
    */
   normalizeMapData(json) {
     // === GERAÇÃO/NORMALIZAÇÃO DE TILES ===
