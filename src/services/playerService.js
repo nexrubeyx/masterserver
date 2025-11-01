@@ -321,6 +321,13 @@ export class PlayerService {
           break;
         }
       }
+      
+      // === VALIDAÇÃO DE OBJETOS BLOQUEADORES ===
+      // Check if any objects at target position block movement
+      if (this.world.objectService.hasBlockingObject(player.mapId, nx, ny)) {
+        // Movement blocked by object (stone, bush, etc)
+        break;
+      }
 
       // === MOVIMENTO VÁLIDO ===
       // Passo está dentro do mapa, aplica movimento

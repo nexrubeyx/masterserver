@@ -107,13 +107,19 @@ export function createMessageRouter(env, logger, world) {
         world.playerService.markViewportDirty(player);
         world.playerService.flushViewportIfDirty(player, Date.now());
 
-        // 5) Envia inventário inicial (vazio)
+        // 5) Envia templates de objetos
+        world.objectService.sendTemplates(player);
+        
+        // 6) Envia objetos visíveis no viewport
+        world.objectService.sendVisibleObjects(player);
+
+        // 7) Envia inventário inicial (vazio)
         world.sendTo(player, { type: 'inv', data: [] });
         
-        // 6) Envia comando de música
+        // 8) Envia comando de música
         world.sendTo(player, { type: 'music', m: env.DEFAULT_SONG, s: 0 });
 
-        // 7) >>> CRÍTICO: Sincroniza presença com outros jogadores
+        // 9) >>> CRÍTICO: Sincroniza presença com outros jogadores
         // Notifica outros jogadores sobre o novo jogador E
         // Notifica o novo jogador sobre os outros já presentes
         world.syncPresence(player);
@@ -163,6 +169,17 @@ export function createMessageRouter(env, logger, world) {
       // Cliente envia 'P' periodicamente, servidor responde 'P'
       case 'P': {
         world.sendRaw(ws, { type: 'P' });
+        return;
+      }
+
+      // === PICKUP ===
+      // Jogador tenta coletar um objeto do mundo
+      case 'pickup': {
+        const session = world.getSession(ws);
+        if (!session) return;  // Sem sessão = não autenticado, ignora
+        
+        // Delega para ObjectService processar a coleta
+        world.objectService.handlePickup(session.player, packet.x, packet.y, packet.tpl);
         return;
       }
 

@@ -22,6 +22,7 @@
 import { MapService } from '../services/mapService.js';
 import { PlayerService } from '../services/playerService.js';
 import { ChatService } from '../services/chatService.js';
+import { ObjectService } from '../services/objectService.js';
 
 export class World {
   /**
@@ -48,6 +49,9 @@ export class World {
     
     // Serviço que gerencia chat (mensagens, comandos, etc)
     this.chatService = new ChatService(env, logger, this);
+    
+    // Serviço que gerencia objetos do mundo (stone, wood, bush, etc)
+    this.objectService = new ObjectService(env, logger, this);
 
     // Próximo ID de sessão a ser atribuído (incrementa sempre)
     this._nextSessionId = 1000;
@@ -70,6 +74,9 @@ export class World {
   async init() {
     // Carrega todos os arquivos de mapa da pasta maps/worlds/
     await this.mapService.loadAll();
+    
+    // Inicializa o serviço de objetos (carrega estado dos objetos)
+    await this.objectService.init();
     
     // Inicia o loop principal do jogo
     this.startGameLoop();
