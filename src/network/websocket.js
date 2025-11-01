@@ -125,8 +125,16 @@ export function createWSServer(env, logger, world, attachToServer /* optional ht
 
       // === ROTEAMENTO ===
       // Passa mensagem para o router que decide como processar
+            // === ROTEAMENTO ===
       router(ws, data).catch((err) => {
-        logger.warn({ err: String(err) }, 'Erro no roteador');
+        logger.warn(
+          {
+            err: err?.message || String(err),
+            stack: err?.stack,
+            packet: data
+          },
+          'Erro no roteador'
+        );
       });
     });
 

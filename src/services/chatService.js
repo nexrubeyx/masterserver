@@ -55,6 +55,22 @@ export class ChatService {
       return;
     }
 
+
+     if (text === '/bush') {
+    // garante que cliente conhece o template (normalmente já enviado no login)
+    this.world.objectService?.sendTemplates(player);
+
+    // coloca 1 arbusto sobre o tile atual do jogador (por cima da grama)
+    this.world.objectService?.placeObject(player.mapId, player.x, player.y, 'bush', 1);
+
+    // confirma no chat local
+    this.world.broadcastInMap(player.mapId, {
+      type: 'message',
+      text: `<em>Arbusto colocado em (${player.x},${player.y}).</em>`
+    });
+    return;
+  }
+
     // === MENSAGENS DE CHAT ===
     
     // Monta pacote de mensagem com escape de HTML

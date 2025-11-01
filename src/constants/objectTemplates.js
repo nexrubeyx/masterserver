@@ -29,7 +29,7 @@ export const OBJECT_TEMPLATES = {
     stack: 1,        // Can be stacked in inventory
     pickup: 1,       // Can be picked up
     block: 1,        // Blocks movement
-    spr: 10,         // Sprite index from items sheet (positive number)
+    spr: 619,         // Sprite index from items sheet (positive number)
     build: ''        // No composed sprite needed
   },
   
@@ -46,13 +46,13 @@ export const OBJECT_TEMPLATES = {
   
   bush: {
     tpl: 'bush',
-    name: 'Bush',
-    desc: 'A leafy bush. Might have berries.',
-    stack: 1,        // Can be stacked in inventory
-    pickup: 1,       // Can be picked up
-    block: 1,        // Blocks movement
-    spr: -74,        // Negative = tile index (tile 74 = bush sprite)
-    build: ''        // No composed sprite needed
+    name: 'Arbusto',
+    desc: 'Um arbusto decorativo.',
+    stack: 0,     // permite coexistir com outros objetos no mesmo tile
+    pickup: 0,    // não coletável (mude para 1 se quiser coletar)
+    block: 0,     // não bloqueia movimento (mude para 1 se quiser bloquear)
+    spr: 384,    // índice do tilesheet (tile16.png): col=5, linha=7
+    build: 'o|2'  // desloca 2px para baixo para alinhar no chão
   }
 };
 

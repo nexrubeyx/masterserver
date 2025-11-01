@@ -201,25 +201,22 @@ export class ObjectService {
    * @param {Object} player - Player object
    */
   sendTemplates(player) {
-    const templates = getAllTemplateKeys();
-    
-    for (const key of templates) {
-      const tpl = OBJECT_TEMPLATES[key];
-      
-      // Send obj_tpl packet
-      this.world.sendTo(player, {
-        type: 'obj_tpl',
-        tpl: tpl.tpl,
-        name: tpl.name,
-        desc: tpl.desc,
-        stack: tpl.stack,
-        pickup: tpl.pickup,
-        block: tpl.block,
-        spr: tpl.spr,
-        build: tpl.build
-      });
-    }
+  const templates = getAllTemplateKeys();
+  for (const key of templates) {
+    const tpl = OBJECT_TEMPLATES[key];
+    this.world.sendTo(player, {
+      type: 'obj_tpl',
+      tpl: tpl.tpl,
+      name: tpl.name,
+      desc: tpl.desc,
+      stack: tpl.stack,
+      pickup: tpl.pickup,
+      block: tpl.block,
+      spr: tpl.spr,
+      build: tpl.build
+    });
   }
+}
 
   /**
    * Send objects in player's viewport
@@ -228,37 +225,30 @@ export class ObjectService {
    * @param {Object} player - Player object
    */
   sendVisibleObjects(player) {
-    const objects = this.objectsByMap.get(player.mapId);
-    if (!objects) return;
-    
-    // Get player's viewport bounds (approximate)
-    const rx = 18; // Viewport radius X
-    const ry = 13; // Viewport radius Y
-    
-    const minX = player.x - rx;
-    const maxX = player.x + rx;
-    const minY = player.y - ry;
-    const maxY = player.y + ry;
-    
-    // Send all objects in viewport
-    for (const [key, stack] of objects.entries()) {
-      const [x, y] = key.split(',').map(Number);
-      
-      // Skip if outside viewport
-      if (x < minX || x > maxX || y < minY || y > maxY) continue;
-      
-      // Send placement for each object type at this position
-      for (const obj of stack) {
-        this.world.sendTo(player, {
-          type: 'o',
-          x,
-          y,
-          d: obj.tpl,
-          c: obj.count
-        });
+    // Determine visible area (viewport)
+    const viewOX = player.ox ?? player.x;
+    const viewOY = player.oy ?? player.y;
+    const viewW = player.viewW ?? 15; // Default viewport width
+    const viewH = player.viewH ?? 11; // Default viewport height
+
+    // Loop through each tile in the viewport
+    for (let dx = 0; dx < viewW; dx++) {
+      for (let dy = 0; dy < viewH; dy++) {
+        const x = viewOX + dx;
+        const y = viewOY + dy;
+        const stack = this.getObjectsAt(player.mapId, x, y);
+        for (const obj of stack) {
+          this.world.sendTo(player, {
+            type: 'o',
+            x,
+            y,
+            d: obj.tpl,
+            c: obj.count
+          });
+        }
       }
     }
-  }
+}
 
   /**
    * Handle pickup interaction
