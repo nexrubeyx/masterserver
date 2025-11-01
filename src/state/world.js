@@ -178,7 +178,9 @@ export class World {
     // Procura se já existe uma sessão ativa para este userId
     // Se existir, desconecta a antiga (mantém apenas a mais recente)
     for (const [existingWs, existingSession] of this.sessions) {
-      if (existingSession.user._id === user._id) {
+      // Compara IDs convertendo ambos para string para garantir compatibilidade
+      // (user._id pode ser ObjectId do MongoDB ou string para guests)
+      if (String(existingSession.user._id) === String(user._id)) {
         this.logger.info(
           { user: user.username, oldSessionId: existingSession.player.sessionId },
           'Desconectando sessão anterior do mesmo usuário'
@@ -189,7 +191,8 @@ export class World {
         try {
           existingWs.close(1000, 'Nova sessão iniciada');
         } catch (err) {
-          // Se falhar ao fechar, força desconexão manual
+          // Se falhar ao fechar, loga o erro e força desconexão manual
+          this.logger.warn({ err: String(err) }, 'Erro ao fechar conexão existente');
           this.handleDisconnect(existingWs);
         }
         
