@@ -145,6 +145,8 @@ async function ensurePlayer(env, logger, { username, isGuest, email, userDoc }) 
   const existingPlayer = await getPlayerByUserId(userDoc._id);
   if (existingPlayer) {
     // Personagem já existe - retorna sem criar novo
+    // Define dbId para permitir salvar posição posteriormente
+    existingPlayer.dbId = existingPlayer._id;
     return { user: userDoc, player: existingPlayer, created: false };
   }
 
@@ -171,6 +173,9 @@ async function ensurePlayer(env, logger, { username, isGuest, email, userDoc }) 
     y: env.DEFAULT_Y,              // Posição Y inicial (configurável via .env)
     appearance                     // Aparência visual
   });
+
+  // Define dbId para permitir salvar posição posteriormente
+  player.dbId = player._id;
 
   // Retorna usuário + personagem criado
   return { user: userDoc, player, created: true };
