@@ -21,6 +21,7 @@
 
 import { savePlayerPosition } from '../models/Player.js';
 import { sendMapObjectSpawnsToPlayer } from './mapObjectsLoader.js';
+import { isDeepWater } from '../constants/tiles.js';
 
 export class PlayerService {
   /**
@@ -306,6 +307,19 @@ export class PlayerService {
         // Não move, não marca viewport, não envia nada
         // Para o loop (movimento bloqueado)
         break;
+      }
+
+      // === VALIDAÇÃO DE TILE (DEEP WATER) ===
+      // Deep water tiles (215, 248, 325) are blocked by default
+      // Unless player has canSwim capability (future feature)
+      const tileAtTarget = map.tiles[ny]?.[nx];
+      if (Number.isFinite(tileAtTarget) && isDeepWater(tileAtTarget)) {
+        // Check if player can swim (future: player.canSwim)
+        const canSwim = player.canSwim || false;
+        if (!canSwim) {
+          // Movement blocked by deep water
+          break;
+        }
       }
 
       // === MOVIMENTO VÁLIDO ===
