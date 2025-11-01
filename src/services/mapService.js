@@ -104,10 +104,17 @@ export class MapService {
     if (!fs.existsSync(mapsDir)) fs.mkdirSync(mapsDir, { recursive: true });
 
     // === PASSO 1: Carrega mapas do MongoDB ===
-    const dbMaps = await findAllMaps();
-    const dbMapsByID = new Map(dbMaps.map(m => [m.id, m]));
+    let dbMaps = [];
+    let dbMapsByID = new Map();
     
-    this.logger.info({ count: dbMaps.length }, 'Mapas carregados do MongoDB');
+    try {
+      dbMaps = await findAllMaps();
+      dbMapsByID = new Map(dbMaps.map(m => [m.id, m]));
+      this.logger.info({ count: dbMaps.length }, 'Mapas carregados do MongoDB');
+    } catch (err) {
+      this.logger.error({ err: String(err) }, 'Erro ao carregar mapas do MongoDB, continuando sem cache');
+      // Continua a execução - mapas serão carregados dos JSONs
+    }
 
     // === PASSO 2: Lê arquivos JSON ===
     const files = fs.readdirSync(mapsDir).filter(f => f.endsWith('.json'));
@@ -169,8 +176,18 @@ export class MapService {
       // Se precisa atualizar, normaliza e salva
       if (shouldUpdate) {
         this.normalizeMapData(mapData);
-        await upsertMap(mapData);
-        this.logger.debug({ id: mapData.id, version: mapData.version }, 'Mapa salvo no MongoDB');
+        
+        // Tenta salvar no MongoDB com tratamento de erros
+        try {
+          await upsertMap(mapData);
+          this.logger.debug({ id: mapData.id, version: mapData.version }, 'Mapa salvo no MongoDB');
+        } catch (err) {
+          this.logger.error(
+            { id: mapData.id, err: String(err) },
+            'Erro ao salvar mapa no MongoDB, usando versão local'
+          );
+          // Continua com a versão normalizada do JSON
+        }
       } else {
         // Usa a versão do MongoDB (não precisa normalizar de novo)
         mapData = dbMap;
