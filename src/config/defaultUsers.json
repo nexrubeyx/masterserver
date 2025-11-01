@@ -1,0 +1,16 @@
+[
+  {
+    "__comment": "SECURITY WARNING: Change these default passwords in production! These are example credentials only.",
+    "username": "admin",
+    "password": "admin123",
+    "email": "admin@localhost",
+    "permission": 4
+  },
+  {
+    "__comment": "Permission levels: 1=PLAYER, 2=CM, 3=GM, 4=MASTER",
+    "username": "tester",
+    "password": "tester123",
+    "email": "tester@localhost",
+    "permission": 1
+  }
+]
