@@ -30,6 +30,7 @@ export class ChatService {
    * Comportamento:
    * - Comandos que começam com '/' são tratados especialmente
    * - /ping: responde com PONG!
+   * - /quit: salva o jogador e desconecta
    * - /b mensagem: envia para todos (global broadcast)
    * - Outras mensagens: envia para todos no mesmo mapa (local)
    * 
@@ -45,6 +46,12 @@ export class ChatService {
     // Comando /ping: responde apenas ao jogador que enviou
     if (text.startsWith('/ping')) {
       this.world.sendTo(player, { type: 'message', text: 'PONG!' });
+      return;
+    }
+
+    // Comando /quit: salva o jogador e desconecta
+    if (text.startsWith('/quit')) {
+      this.handleQuit(player);
       return;
     }
 
@@ -64,6 +71,44 @@ export class ChatService {
     } else {
       // Canal Local - envia apenas para jogadores no mesmo mapa
       this.world.broadcastInMap(player.mapId, msg);
+    }
+  }
+
+  /**
+   * Processa o comando /quit
+   * 
+   * @param {Object} player - Jogador que enviou o comando
+   * 
+   * Comportamento:
+   * 1. Para o movimento do jogador
+   * 2. Salva a posição atual no banco de dados
+   * 3. Envia mensagem de despedida
+   * 4. Desconecta o jogador do servidor
+   */
+  async handleQuit(player) {
+    try {
+      // Envia mensagem de despedida ao jogador
+      this.world.sendTo(player, { type: 'message', text: 'Salvando e desconectando...' });
+      
+      // Para o movimento do jogador
+      this.world.playerService.stopMoving(player);
+      
+      // Salva a posição do jogador no banco de dados
+      await this.world.playerService.persistPosition(player);
+      
+      this.logger.info({ player: player.name, x: player.x, y: player.y }, 'Jogador usou /quit e foi salvo');
+      
+      // Procura a conexão WebSocket do jogador e desconecta
+      for (const [ws, session] of this.world.sessions) {
+        if (session.player === player) {
+          // Fecha a conexão WebSocket
+          ws.close(1000, 'Logout via /quit');
+          break;
+        }
+      }
+    } catch (err) {
+      this.logger.error({ err: String(err) }, 'Erro ao processar /quit');
+      this.world.sendTo(player, { type: 'message', text: 'Erro ao salvar. Tente novamente.' });
     }
   }
 
