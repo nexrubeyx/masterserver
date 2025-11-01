@@ -1,0 +1,14 @@
+[
+  {
+    "username": "admin",
+    "password": "CHANGE_THIS_PASSWORD",
+    "email": "admin@example.com",
+    "permission": 4
+  },
+  {
+    "username": "tester",
+    "password": "CHANGE_THIS_PASSWORD",
+    "email": "tester@example.com",
+    "permission": 1
+  }
+]
