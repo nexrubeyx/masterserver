@@ -258,31 +258,71 @@ export class World {
    * 
    * @param {WebSocket} ws - Conexão que foi fechada
    */
-  handleDisconnect(ws) {
-    const session = this.sessions.get(ws);
-    if (!session) return;  // Sem sessão = nada a fazer (já processado ou nunca existiu)
+// Dentro da classe World
+handleDisconnect(ws) {
+  // Idempotente: se já foi removido, sai
+  const session = this.sessions.get(ws);
+  if (!session) return;
 
-    const { player, user } = session;
+  const { player, user } = session;
 
-    // Para movimento se estiver movendo
-    this.playerService.stopMoving(player);
+  // 1) Para movimento do jogador (se seu loop usa estas flags)
+  try {
+    player.moving = false;
+  } catch {}
 
-    // Notifica outros jogadores no mesmo mapa que este jogador saiu
-    // Envia pacote de remoção para que o cliente remova o sprite
-    this.sendToOthersInMap(player, {
-      type: 'p_remove',
-      id: String(player.sessionId)
-    });
+  // 2) Notifica outros no mesmo mapa que este player saiu
+  // O cliente ml.min.js espera { type: "remove", id: <id> }
+  try {
+    this.sendToOthersInMap(player, { type: 'remove', id: player.id });
+  } catch (err) {
+    this.logger?.warn({ err: err?.message, stack: err?.stack, id: player?.id }, 'Falha ao broadcast remove');
+  }
 
-    // Salva posição no banco (não bloqueia, apenas registra erro se falhar)
-    this.playerService.persistFullState(player).catch(() => { });
+  // 3) Salva estado do jogador (opcional mas recomendado)
+  // Ajuste para o serviço/método real disponível no seu projeto.
+  (async () => {
+    try {
+      if (this.playerService?.saveOnDisconnect) {
+        await this.playerService.saveOnDisconnect(player);
+      } else if (this.playerService?.saveState) {
+        await this.playerService.saveState(player);
+      } // Se houver outra função (ex.: saveFullState), use-a aqui.
+    } catch (err) {
+      this.logger?.warn({ err: err?.message, stack: err?.stack, id: player?.id }, 'Falha ao salvar estado no disconnect');
+    }
+  })();
 
-    // Remove das estruturas de dados
-    this.players.delete(String(player.sessionId));
+  // 4) Remove das estruturas de dados
+  try {
+    // Remove da lista de sessões
     this.sessions.delete(ws);
 
-    this.logger.info({ user: user.username, id: player.sessionId }, 'Sessão desconectada');
+    // Remove do índice de jogadores (Map por sessionId)
+    if (player?.sessionId && this.players.has(player.sessionId)) {
+      this.players.delete(player.sessionId);
+    } else {
+      // Fallback: remove por identidade se necessário
+      for (const [sid, p] of this.players) {
+        if (p === player) {
+          this.players.delete(sid);
+          break;
+        }
+      }
+    }
+
+    // Se houver indexação por mapa, limpe também
+    this.mapService?.removePlayerFromMap?.(player?.mapId, player);
+  } catch (err) {
+    this.logger?.warn({ err: err?.message, stack: err?.stack, id: player?.id }, 'Falha ao limpar estruturas no disconnect');
   }
+
+  // 5) Log
+  this.logger?.info(
+    { id: player?.id, name: player?.name, userId: user?._id, ip: ws?._ip },
+    'Jogador desconectado e removido do mundo'
+  );
+}
 
   /**
    * Envia um pacote diretamente para uma conexão WebSocket
