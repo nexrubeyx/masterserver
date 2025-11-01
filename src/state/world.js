@@ -177,6 +177,11 @@ export class World {
     // === PREVENÇÃO DE MÚLTIPLAS SESSÕES ===
     // Procura se já existe uma sessão ativa para este userId
     // Se existir, desconecta a antiga (mantém apenas a mais recente)
+    // 
+    // NOTA: Esta é uma busca O(n) nas sessões ativas. Para otimização futura,
+    // poderia-se manter um Map separado userId->session para lookup O(1).
+    // Porém, este código só executa no login (não no hot path) e a maioria
+    // dos servidores terá <1000 sessões simultâneas, tornando o impacto mínimo.
     for (const [existingWs, existingSession] of this.sessions) {
       // Compara IDs convertendo ambos para string para garantir compatibilidade
       // (user._id pode ser ObjectId do MongoDB ou string para guests)
@@ -192,7 +197,8 @@ export class World {
           existingWs.close(1000, 'Nova sessão iniciada');
         } catch (err) {
           // Se falhar ao fechar, loga o erro e força desconexão manual
-          this.logger.warn({ err: String(err) }, 'Erro ao fechar conexão existente');
+          // Pino logger suporta objetos de erro diretamente
+          this.logger.warn({ err }, 'Erro ao fechar conexão existente');
           this.handleDisconnect(existingWs);
         }
         
