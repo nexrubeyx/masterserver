@@ -158,7 +158,7 @@ export class MapService {
       // === VERIFICA SE PRECISA ATUALIZAR NO MONGODB ===
       const dbMap = dbMapsByID.get(json.id);
       let shouldUpdate = false;
-      let mapData = json; // Use a different variable to avoid reassignment confusion
+      let finalMapData = json; // Will hold the final map data to use (from JSON or MongoDB)
       
       if (!dbMap) {
         // Mapa não existe no MongoDB - precisa inserir
@@ -175,27 +175,30 @@ export class MapService {
 
       // Se precisa atualizar, normaliza e salva
       if (shouldUpdate) {
-        this.normalizeMapData(mapData);
+        this.normalizeMapData(finalMapData);
         
         // Tenta salvar no MongoDB com tratamento de erros
         try {
-          await upsertMap(mapData);
-          this.logger.debug({ id: mapData.id, version: mapData.version }, 'Mapa salvo no MongoDB');
+          await upsertMap(finalMapData);
+          this.logger.debug({ id: finalMapData.id, version: finalMapData.version }, 'Mapa salvo no MongoDB');
         } catch (err) {
           this.logger.error(
-            { id: mapData.id, err: String(err) },
+            { id: finalMapData.id, err: String(err) },
             'Erro ao salvar mapa no MongoDB, usando versão local'
           );
           // Continua com a versão normalizada do JSON
         }
       } else {
         // Usa a versão do MongoDB (não precisa normalizar de novo)
-        mapData = dbMap;
-        this.logger.debug({ id: mapData.id, version: mapData.version }, 'Mapa carregado do MongoDB (versão atual)');
+        finalMapData = dbMap;
+        this.logger.debug({ id: finalMapData.id, version: finalMapData.version }, 'Mapa carregado do MongoDB (versão atual)');
       }
 
       // Armazena mapa no Map interno
-      this.maps.set(mapData.id, mapData);
+      this.maps.set(finalMapData.id, finalMapData);
+      
+      // Loga sucesso do carregamento individual
+      this.logger.debug({ id: finalMapData.id, w: finalMapData.width, h: finalMapData.height }, 'Mapa carregado');
     }
 
     // === PASSO 4: Carrega mapas do MongoDB que não estão nos JSONs ===
