@@ -274,22 +274,17 @@ handleDisconnect(ws) {
   // 2) Notifica outros no mesmo mapa que este player saiu
   // O cliente ml.min.js espera { type: "remove", id: <id> }
   try {
-    this.sendToOthersInMap(player, { type: 'remove', id: player.id });
+    this.sendToOthersInMap(player, { type: 'remove', id: String(player.sessionId) });
   } catch (err) {
-    this.logger?.warn({ err: err?.message, stack: err?.stack, id: player?.id }, 'Falha ao broadcast remove');
+    this.logger?.warn({ err: err?.message, stack: err?.stack, sessionId: player?.sessionId }, 'Falha ao broadcast remove');
   }
 
-  // 3) Salva estado do jogador (opcional mas recomendado)
-  // Ajuste para o serviço/método real disponível no seu projeto.
+  // 3) Salva estado do jogador no banco de dados (não bloqueante)
   (async () => {
     try {
-      if (this.playerService?.saveOnDisconnect) {
-        await this.playerService.saveOnDisconnect(player);
-      } else if (this.playerService?.saveState) {
-        await this.playerService.saveState(player);
-      } // Se houver outra função (ex.: saveFullState), use-a aqui.
+      await this.playerService.persistFullState(player);
     } catch (err) {
-      this.logger?.warn({ err: err?.message, stack: err?.stack, id: player?.id }, 'Falha ao salvar estado no disconnect');
+      this.logger?.warn({ err: err?.message, stack: err?.stack, sessionId: player?.sessionId }, 'Falha ao salvar estado no disconnect');
     }
   })();
 
@@ -314,12 +309,12 @@ handleDisconnect(ws) {
     // Se houver indexação por mapa, limpe também
     this.mapService?.removePlayerFromMap?.(player?.mapId, player);
   } catch (err) {
-    this.logger?.warn({ err: err?.message, stack: err?.stack, id: player?.id }, 'Falha ao limpar estruturas no disconnect');
+    this.logger?.warn({ err: err?.message, stack: err?.stack, sessionId: player?.sessionId }, 'Falha ao limpar estruturas no disconnect');
   }
 
   // 5) Log
   this.logger?.info(
-    { id: player?.id, name: player?.name, userId: user?._id, ip: ws?._ip },
+    { sessionId: player?.sessionId, name: player?.name, userId: user?._id, ip: ws?._ip },
     'Jogador desconectado e removido do mundo'
   );
 }
