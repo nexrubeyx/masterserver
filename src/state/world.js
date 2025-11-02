@@ -442,7 +442,61 @@ finalizeDisconnect(player, user, ws) {
     this.sleepingPlayers.delete(player.sessionId);
   }
 
-  // 1) Persistência assíncrona do estado completo
+  // 1) Envia mensagem "has left" e efeito "poofed" para outros jogadores
+  try {
+    const name = (player?.name && String(player.name)) || `guest-${player?.sessionId ?? ''}`;
+    const leftText = `<span style='color:#99ff99'>${name} has left.</span>`;
+
+    // Template do efeito "poofed" (partículas que desaparecem)
+    const poofedTemplate = {
+      type: 'fx_tpl',
+      tpl: 'poofed',
+      code: `{sound: 'pop',x: ${player.x},y: ${player.y},dir: 16777215,template: 'poofed',base_template: 'poofed',start: function()\\r\\n{\\r\\n    this.life = 90;\\r\\n    //this.plr = getMob(this.dir[0]);\\r\\n\\r\\n    for(var i =0;i<15;i++) {\\r\\n        var c = this.sprite(919);\\r\\n        //var c = this.circle(this.dir,12);\\r\\n        c.tint = this.dir;//[1];\\r\\n        c.y += 8;\\r\\n        //c.x -= 2;\\r\\n        c.dx = Math.random()*0.4-0.2;\\r\\n        c.dy = Math.random()*0.4-0.6;\\r\\n        c.scale.x = 1;\\r\\n        c.scale.y = 1;\\r\\n        if(Math.random() > 0.5)\\r\\n            c.dr = 0.005;\\r\\n        else\\r\\n            c.dr = -0.005;\\r\\n        c.alpha = 0.20;\\r\\n        c.life = 90;\\r\\n    }\\r\\n},run: function()\\r\\n{\\r\\n},move: function(p)\\r\\n{\\r\\n    //if(!this.plr && this.dir[0] !== -1) {this.plr = getMob(this.dir[0]); this.life++; p.life++; return;}\\r\\n    //if(Date.now()-this.timer<12){\\r\\n        p.x+=p.dx;p.y+=p.dy;\\r\\n        //p.life++;this.life++;return;}\\r\\n    //this.timer=Date.now();//stick to 60fps (16.667)\\r\\n    p.alpha -= Math.random()*0.010;//0.01;\\r\\n    p.scale.x += 0.02;\\r\\n\\tp.scale.y += 0.02;\\r\\n    p.rotation += p.dr;\\r\\n}}`
+    };
+
+    // Efeito "poofed" com parâmetros
+    const poofedEffect = {
+      type: 'fx',
+      tpl: 'poofed',
+      x: player.x,
+      y: player.y,
+      s: 'pop',
+      d: 16777215
+    };
+
+    // Monta pacote com mensagem, template de efeito, efeito e lista de jogadores
+    const messagePacket = { type: 'message', text: leftText };
+    const fxTplPacket = JSON.stringify(poofedTemplate);
+    const fxPacket = JSON.stringify(poofedEffect);
+
+    // Obtém lista atualizada de jogadores (sem o jogador que saiu)
+    const playersInMap = this.getPlayersInMap(player.mapId).filter(p => p !== player);
+    const plData = playersInMap.map((p) => {
+      const snap = this.playerService.makePlayerSnapshotPacket(p);
+      return JSON.stringify(snap);
+    });
+    const plPacket = JSON.stringify({ type: 'pl', data: plData });
+
+    // Cria pacote "pkg" contendo todos os sub-pacotes
+    const pkgData = [
+      JSON.stringify(messagePacket),
+      fxTplPacket,
+      fxPacket,
+      plPacket
+    ];
+
+    const pkg = {
+      type: 'pkg',
+      data: JSON.stringify(pkgData)
+    };
+
+    // Envia para outros jogadores no mapa
+    this.sendToOthersInMap(player, pkg);
+  } catch (err) {
+    this.logger?.warn({ err: err?.message, stack: err?.stack, sessionId: player?.sessionId }, 'Falha ao enviar mensagem e efeito de departure');
+  }
+
+  // 2) Persistência assíncrona do estado completo
   (async () => {
     try {
       await this.playerService.persistFullState(player);
@@ -451,7 +505,7 @@ finalizeDisconnect(player, user, ws) {
     }
   })();
 
-  // 2) Remove das estruturas de dados
+  // 3) Remove das estruturas de dados
   try {
     // Remove do índice de players
     if (player?.sessionId && this.players.has(player.sessionId)) {
@@ -471,16 +525,11 @@ finalizeDisconnect(player, user, ws) {
     this.logger?.warn({ err: err?.message, stack: err?.stack, sessionId: player?.sessionId }, 'Falha ao limpar estruturas no disconnect final');
   }
 
-  // 3) Log
+  // 4) Log
   this.logger?.info(
     { sessionId: player?.sessionId, name: player?.name, userId: user?._id, ip: ws?._ip },
     'Jogador removido permanentemente após período de sleep'
   );
-
-  // 4) Broadcast da lista de jogadores atualizada (sem o jogador)
-  try {
-    this.broadcastPlayersListToMap?.(player?.mapId);
-  } catch {}
 }
 
   /**
