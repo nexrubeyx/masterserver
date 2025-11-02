@@ -115,53 +115,47 @@ export class PlayerService {
   }
 
   /**
-   * Calcula origem do viewport para um jogador usando sistema de chunks
+   * Calcula origem do viewport para um jogador centralizado na posição do player
    * 
    * O viewport é a área retangular de tiles visíveis ao redor do jogador.
    * A origem (ox, oy) é o canto superior esquerdo desta área.
    * 
-   * Sistema de Chunks:
-   * - O viewport não segue o jogador tile-by-tile
-   * - A origem é "encaixada" em limites de chunks
-   * - Um chunk tem o mesmo tamanho do raio do viewport (MAP_VIEW_RADIUS)
-   * - Novo viewport só é enviado quando jogador cruza limite de chunk
+   * Sistema Centralizado:
+   * - O viewport está sempre centralizado no jogador
+   * - A origem é calculada como player.x - raio_x, player.y - raio_y
+   * - Viewport é enviado quando o jogador se move o suficiente (coalescência)
+   * - Isso garante que o jogador sempre vê o conteúdo ao seu redor imediatamente
    * 
    * @param {Object} player - Jogador
-   * @returns {Object} { ox, oy } - Origem do viewport encaixada em chunks
+   * @returns {Object} { ox, oy } - Origem do viewport centralizada no player
    * 
    * Exemplo com raio 18x13 (viewport 36x26):
-   * - Chunk size: 18x13 (igual ao raio do viewport)
    * - Viewport total: 36x26 tiles (2*raio)
    * - Se player está em (50, 50):
-   *   - chunkX = floor(50 / 18) = 2
-   *   - baseX = 2 * 18 = 36
-   *   - ox = 36
-   * - Player precisa mover 18 tiles para mudar de chunk
+   *   - ox = 50 - 18 = 32
+   *   - oy = 50 - 13 = 37
+   * - Viewport vai de (32, 37) até (68, 63)
+   * - Player está no centro em (50, 50)
    */
   getViewportOrigin(player) {
-    // Tamanho do chunk = raio do viewport (MAP_VIEW_RADIUS)
-    const chunkWidth = this.env.MAP_VIEW_RADIUS_X;
-    const chunkHeight = this.env.MAP_VIEW_RADIUS_Y;
+    const radiusX = this.env.MAP_VIEW_RADIUS_X;
+    const radiusY = this.env.MAP_VIEW_RADIUS_Y;
 
-    // Calcula em qual chunk o jogador está
-    const chunkX = Math.floor(player.x / chunkWidth);
-    const chunkY = Math.floor(player.y / chunkHeight);
-
-    // Calcula a posição base do chunk (canto superior esquerdo do chunk)
-    const baseX = chunkX * chunkWidth;
-    const baseY = chunkY * chunkHeight;
-
-    // Origem do viewport = posição base do chunk
-    // Isso garante que cada chunk tenha uma origem única
-    let ox = baseX;
-    let oy = baseY;
+    // Calcula origem centralizada no jogador
+    let ox = player.x - radiusX;
+    let oy = player.y - radiusY;
 
     // Corrige para não ultrapassar borda do mapa
     const map = this.world.mapService.getMap(player.mapId);
     if (map) {
-      // Calcula a origem máxima (último chunk do mapa)
-      const maxOX = Math.floor((map.width - 1) / chunkWidth) * chunkWidth;
-      const maxOY = Math.floor((map.height - 1) / chunkHeight) * chunkHeight;
+      // Limita origem ao início do mapa
+      ox = Math.max(0, ox);
+      oy = Math.max(0, oy);
+      
+      // Limita origem para não ultrapassar o fim do mapa
+      // Origem máxima = tamanho do mapa - tamanho do viewport
+      const maxOX = Math.max(0, map.width - (2 * radiusX));
+      const maxOY = Math.max(0, map.height - (2 * radiusY));
       ox = Math.min(ox, maxOX);
       oy = Math.min(oy, maxOY);
     }
@@ -368,7 +362,7 @@ export class PlayerService {
       player.x = nx;
       player.y = ny;
 
-      // Marca viewport como sujo para enviar novo chunk de tiles
+      // Marca viewport como sujo para enviar viewport atualizado
       this.markViewportDirty(player);
       moved = true;
 
