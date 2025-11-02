@@ -125,7 +125,12 @@ export function loadEnv() {
     // Taxa máxima de envio de snapshots de jogadores (20 Hz = 20 atualizações/segundo)
     SNAPSHOT_MAX_HZ: parseInt(process.env.SNAPSHOT_MAX_HZ || '20', 10),
     // Taxa máxima de envio de atualizações de mapa (20 Hz)
-    MAP_MAX_HZ: parseInt(process.env.MAP_MAX_HZ || '20', 10)
+    MAP_MAX_HZ: parseInt(process.env.MAP_MAX_HZ || '20', 10),
+
+    // === DESCONEXÃO E SLEEP ===
+    // Tempo em milissegundos que um jogador fica em modo "sleep" antes de ser removido
+    // após desconectar (60000ms = 1 minuto)
+    SLEEP_TIMEOUT_MS: parseInt(process.env.SLEEP_TIMEOUT_MS || '60000', 10)
   };
 
   return env;

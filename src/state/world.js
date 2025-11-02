@@ -364,11 +364,12 @@ broadcastPlayersListToMap(mapId) {
 
 
 /**
-   * Trata desconexão de um jogador - coloca em modo "sleeping" por 1 minuto
+   * Trata desconexão de um jogador - coloca em modo "sleeping"
    * 
    * Chamado quando uma conexão WebSocket é fechada.
-   * Em vez de remover imediatamente, o jogador vai "dormir" por 1 minuto.
-   * Após 1 minuto, é removido permanentemente.
+   * Em vez de remover imediatamente, o jogador vai "dormir" pelo tempo configurado
+   * em SLEEP_TIMEOUT_MS (padrão: 1 minuto).
+   * Após esse período, é removido permanentemente.
    * 
    * @param {WebSocket} ws - Conexão que foi fechada
    */
@@ -406,10 +407,10 @@ handleDisconnect(ws) {
     this.broadcastPlayersListToMap?.(player?.mapId);
   } catch {}
 
-  // 6) Agenda a remoção final do jogador após 1 minuto (60000ms)
+  // 6) Agenda a remoção final do jogador após o período de sleep configurado
   const timeoutId = setTimeout(() => {
     this.finalizeDisconnect(player, user, ws);
-  }, 60000);
+  }, this.env.SLEEP_TIMEOUT_MS);
 
   // 7) Armazena o jogador dormindo com o timer
   this.sleepingPlayers.set(player.sessionId, {
@@ -419,9 +420,10 @@ handleDisconnect(ws) {
   });
 
   // 8) Log
+  const sleepSeconds = Math.round(this.env.SLEEP_TIMEOUT_MS / 1000);
   this.logger?.info(
-    { sessionId: player?.sessionId, name: player?.name, userId: user?._id, ip: ws?._ip },
-    'Jogador colocado em modo sleep (1 minuto até desconexão final)'
+    { sessionId: player?.sessionId, name: player?.name, userId: user?._id, ip: ws?._ip, sleepTimeoutSec: sleepSeconds },
+    `Jogador colocado em modo sleep (${sleepSeconds}s até desconexão final)`
   );
 }
 
