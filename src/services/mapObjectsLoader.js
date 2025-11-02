@@ -127,6 +127,11 @@ export function sendMapObjectPlacementsToPlayer(player, map, world) {
       continue;
     }
     
+    // Valida coordenadas estão dentro dos limites do mapa
+    if (p.x < 0 || p.x >= map.width || p.y < 0 || p.y >= map.height) {
+      continue;
+    }
+    
     // Envia colocação do objeto no mapa
     // O template já foi enviado ao cliente durante o login
     world.sendTo(player, buildPlaceObjectPacket(p.x | 0, p.y | 0, p.tpl));
