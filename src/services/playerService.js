@@ -171,20 +171,16 @@ export class PlayerService {
    * 
    * @param {Object} player - Jogador
    * 
-   * O viewport é marcado se a origem OU a posição do jogador mudou.
-   * Isso garante que chunks sejam carregados corretamente mesmo perto das bordas do mapa.
+   * O viewport é marcado apenas quando a origem mudou.
    * Múltiplas mudanças no mesmo tick resultam em apenas um envio.
    */
   markViewportDirty(player) {
     const { ox, oy } = this.getViewportOrigin(player);
     
-    // Marca como dirty se origem mudou OU se posição do jogador mudou
-    // Isso é essencial para bordas do mapa onde a origem pode ficar clamped
-    // mas o jogador continua se movendo
+    // Marca como dirty apenas se a origem do viewport mudou
     const originChanged = (player._lastViewOX !== ox || player._lastViewOY !== oy);
-    const positionChanged = (player._lastViewPlayerX !== player.x || player._lastViewPlayerY !== player.y);
     
-    if (originChanged || positionChanged) {
+    if (originChanged) {
       player._viewDirty = true;
       player._pendingOX = ox;
       player._pendingOY = oy;
@@ -213,12 +209,10 @@ export class PlayerService {
     // Rate limiting: respeita intervalo mínimo entre envios
     if (now - (player._lastMapAt || 0) < this._mapMinInterval) return;
 
-    // Limpa flag e atualiza origem guardada E posição do jogador
+    // Limpa flag e atualiza origem guardada
     player._viewDirty = false;
     player._lastViewOX = player._pendingOX;
     player._lastViewOY = player._pendingOY;
-    player._lastViewPlayerX = player.x;
-    player._lastViewPlayerY = player.y;
     player._lastMapAt = now;
 
     // Obtém o mapa atual
