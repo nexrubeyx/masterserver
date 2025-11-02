@@ -6,6 +6,7 @@ Implementa autenticação (login/guest), mapa em JSON com vizinhos (transição 
 ## Características
 - **Autenticação**: Login com credenciais ou guest mode
 - **Mapas JSON**: Mapas editáveis em formato JSON com versionamento
+- **Templates de Objetos**: Sistema de templates dinâmico com suporte a templates por mapa
 - **Movimento tile-by-tile**: Sistema de movimento fluido com validação
 - **Chat**: Sistema de mensagens entre jogadores
 - **Água Profunda**: Sistema completo de água com animação e colisão (tiles 36, 248, 325)
@@ -35,6 +36,7 @@ node test-deep-water.js
 ```
 
 ## Documentação Adicional
+- `TEMPLATES_DOCUMENTATION.md` - Sistema completo de templates de objetos
 - `DEEP_WATER_IMPLEMENTATION.md` - Detalhes técnicos da implementação de água
 - `IMPLEMENTATION_SUMMARY.md` - Resumo completo das mudanças
 - `MANUAL_TESTING_GUIDE.md` - Guia para verificação manual com cliente
