@@ -250,6 +250,10 @@ broadcastPlayersListToMap(mapId) {
     this.players.set(sessionId, player);      // sessionId -> player
 
     this.logger.info({ user: user.username, sessionId, mapId: player.mapId }, 'Sessão anexada');
+
+    // Broadcast imediato do "pl" para garantir que todos os clientes no mapa
+    // reconciliem suas listas de entidades e removam quaisquer ghosts remanescentes
+    this.broadcastPlayersListToMap(player.mapId);
   }
 
   /**
