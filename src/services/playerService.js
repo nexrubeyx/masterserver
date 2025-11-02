@@ -171,16 +171,44 @@ export class PlayerService {
    * 
    * @param {Object} player - Jogador
    * 
-   * O viewport é marcado apenas quando a origem mudou.
+   * O viewport é marcado quando:
+   * - A origem mudou, OU
+   * - O jogador está próximo de uma borda do mapa (dentro do raio do viewport)
+   *   onde a origem é clamped e não pode mudar mais, mas o viewport precisa
+   *   ser atualizado porque há novos tiles visíveis
+   * 
    * Múltiplas mudanças no mesmo tick resultam em apenas um envio.
    */
   markViewportDirty(player) {
     const { ox, oy } = this.getViewportOrigin(player);
     
-    // Marca como dirty apenas se a origem do viewport mudou
+    // Marca como dirty se a origem do viewport mudou
     const originChanged = (player._lastViewOX !== ox || player._lastViewOY !== oy);
     
-    if (originChanged) {
+    // Verifica se o jogador está perto de uma borda do mapa
+    // Quando perto da borda, o viewport deve ser enviado mesmo que a origem não mude
+    // porque novos tiles ficam visíveis à medida que o jogador se aproxima do limite
+    const map = this.world.mapService.getMap(player.mapId);
+    let nearEdge = false;
+    
+    if (map) {
+      const radiusX = this.env.MAP_VIEW_RADIUS_X;
+      const radiusY = this.env.MAP_VIEW_RADIUS_Y;
+      
+      // Calcula a origem ideal (não clamped) para comparação
+      const idealOX = player.x - radiusX;
+      const idealOY = player.y - radiusY;
+      
+      // Se a origem ideal seria negativa ou ultrapassaria o fim do mapa,
+      // o jogador está perto de uma borda e o viewport está sendo clamped
+      const maxOX = Math.max(0, map.width - (2 * radiusX));
+      const maxOY = Math.max(0, map.height - (2 * radiusY));
+      
+      nearEdge = (idealOX < 0 || idealOX > maxOX || idealOY < 0 || idealOY > maxOY);
+    }
+    
+    // Marca como dirty se origem mudou OU se está perto da borda
+    if (originChanged || nearEdge) {
       player._viewDirty = true;
       player._pendingOX = ox;
       player._pendingOY = oy;
