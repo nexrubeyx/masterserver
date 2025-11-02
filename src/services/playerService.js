@@ -145,6 +145,7 @@ export class PlayerService {
     
     // Calcula em qual chunk o jogador está
     // floor(x / chunkWidth) dá o índice do chunk
+    // Nota: player.x e player.y são sempre >= 0 devido à validação de bordas no tickPlayer
     const chunkX = Math.floor(player.x / chunkWidth);
     const chunkY = Math.floor(player.y / chunkHeight);
     
