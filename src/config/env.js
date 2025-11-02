@@ -71,6 +71,12 @@ export function loadEnv() {
     MAP_VIEW_RADIUS_X: parseInt(process.env.MAP_VIEW_RADIUS_X || '18', 10),
     // Raio da viewport em tiles (vertical)
     MAP_VIEW_RADIUS_Y: parseInt(process.env.MAP_VIEW_RADIUS_Y || '13', 10),
+    // Raio do chunk em tiles (horizontal) - área maior carregada quando próximo à borda
+    MAP_CHUNK_RADIUS_X: parseInt(process.env.MAP_CHUNK_RADIUS_X || '24', 10),
+    // Raio do chunk em tiles (vertical) - área maior carregada quando próximo à borda
+    MAP_CHUNK_RADIUS_Y: parseInt(process.env.MAP_CHUNK_RADIUS_Y || '18', 10),
+    // Distância da borda (em tiles) que ativa carregamento de chunk
+    CHUNK_BORDER_THRESHOLD: parseInt(process.env.CHUNK_BORDER_THRESHOLD || '10', 10),
     // Música padrão que toca ao entrar
     DEFAULT_SONG: process.env.DEFAULT_SONG || 'rpgtitle',
 

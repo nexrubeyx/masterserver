@@ -150,6 +150,10 @@ export class PlayerService {
    * 
    * Isso garante que o viewport sempre fique dentro dos limites do mapa.
    * 
+   * IMPORTANTE: Usa sempre MAP_VIEW_RADIUS (viewport), NÃO MAP_CHUNK_RADIUS.
+   * O chunk é apenas uma área de pré-carregamento maior; a origem do viewport
+   * é baseada na área visível real do cliente.
+   * 
    * @param {Object} map - Mapa atual
    * @returns {Object} { maxOX, maxOY } - Limites máximos da origem
    * @private
@@ -163,6 +167,34 @@ export class PlayerService {
     };
   }
 
+  /**
+   * Calcula origem do viewport para um jogador centralizado na posição do player
+   * 
+   * O viewport é a área retangular de tiles visíveis ao redor do jogador.
+   * A origem (ox, oy) é o canto superior esquerdo desta área.
+   * 
+   * Sistema Centralizado:
+   * - O viewport está sempre centralizado no jogador
+   * - A origem é calculada como player.x - raio_x, player.y - raio_y
+   * - Viewport é enviado quando o jogador se move o suficiente (coalescência)
+   * - Isso garante que o jogador sempre vê o conteúdo ao seu redor imediatamente
+   * 
+   * IMPORTANTE: Usa sempre MAP_VIEW_RADIUS (viewport), NÃO MAP_CHUNK_RADIUS.
+   * O chunk é apenas um payload maior de dados; a origem é baseada no viewport
+   * visível do cliente. O cliente sempre tem o mesmo tamanho de viewport, mas
+   * recebe mais tiles quando próximo das bordas (chunk loading).
+   * 
+   * @param {Object} player - Jogador
+   * @returns {Object} { ox, oy } - Origem do viewport centralizada no player
+   * 
+   * Exemplo com raio 18x13 (viewport 36x26):
+   * - Viewport total: 36x26 tiles (2*raio)
+   * - Se player está em (50, 50):
+   *   - ox = 50 - 18 = 32
+   *   - oy = 50 - 13 = 37
+   * - Viewport vai de (32, 37) até (68, 63)
+   * - Player está no centro em (50, 50)
+   */
   getViewportOrigin(player) {
     const radiusX = this.env.MAP_VIEW_RADIUS_X;
     const radiusY = this.env.MAP_VIEW_RADIUS_Y;
@@ -188,6 +220,24 @@ export class PlayerService {
   }
 
   /**
+   * Verifica se o jogador está próximo de uma borda do mapa
+   * 
+   * @param {Object} player - Jogador
+   * @param {Object} map - Mapa atual
+   * @returns {boolean} true se o jogador está dentro da distância threshold de uma borda
+   * @private
+   */
+  _isNearBorder(player, map) {
+    const threshold = this.env.CHUNK_BORDER_THRESHOLD;
+    return (
+      player.x < threshold ||
+      player.y < threshold ||
+      player.x >= (map.width - threshold) ||
+      player.y >= (map.height - threshold)
+    );
+  }
+
+  /**
    * Marca viewport como "sujo" (precisa ser enviado)
    * 
    * Chamado quando o jogador se move para uma nova região.
@@ -200,6 +250,10 @@ export class PlayerService {
    * - O jogador está próximo de uma borda do mapa (dentro do raio do viewport)
    *   onde a origem é clamped e não pode mudar mais, mas o viewport precisa
    *   ser atualizado porque há novos tiles visíveis
+   * 
+   * DESIGN: Usa MAP_VIEW_RADIUS para calcular origem (não MAP_CHUNK_RADIUS)
+   * porque a origem é baseada no viewport visível do cliente. O chunk é apenas
+   * uma área maior de pré-carregamento de dados enviada ao cliente.
    * 
    * Múltiplas mudanças no mesmo tick resultam em apenas um envio.
    */
@@ -233,6 +287,12 @@ export class PlayerService {
       player._viewDirty = true;
       player._pendingOX = ox;
       player._pendingOY = oy;
+      
+      // Marca se deve usar chunk (área maior) quando perto da borda
+      // Esta flag é usada em flushViewportIfDirty para decidir o tamanho do payload
+      if (map) {
+        player._useChunkLoad = this._isNearBorder(player, map);
+      }
     }
   }
 
@@ -250,6 +310,10 @@ export class PlayerService {
    * O que é enviado:
    * 1. Pacote 'map' com todos os tiles visíveis
    * 2. Objetos animados presentes no mapa
+   * 
+   * Se o jogador está próximo de uma borda do mapa (determinado pelo
+   * CHUNK_BORDER_THRESHOLD), envia um chunk maior para proporcionar
+   * uma experiência mais suave.
    */
   flushViewportIfDirty(player, now) {
     // Não faz nada se viewport não mudou
@@ -268,13 +332,20 @@ export class PlayerService {
     const map = this.world.mapService.getMap(player.mapId);
     if (!map) return;
     
-    // Constrói payload com tiles visíveis
+    // Determina se deve usar chunk (área maior) baseado na proximidade com bordas
+    const useChunk = player._useChunkLoad || false;
+    
+    // Seleciona raio apropriado: chunk se perto da borda, viewport normal caso contrário
+    const radiusX = useChunk ? this.env.MAP_CHUNK_RADIUS_X : this.env.MAP_VIEW_RADIUS_X;
+    const radiusY = useChunk ? this.env.MAP_CHUNK_RADIUS_Y : this.env.MAP_VIEW_RADIUS_Y;
+    
+    // Constrói payload com tiles visíveis (viewport ou chunk)
     const tiles = this.world.mapService.buildViewportPayload(
       map,
       player.x,
       player.y,
-      this.env.MAP_VIEW_RADIUS_X,
-      this.env.MAP_VIEW_RADIUS_Y
+      radiusX,
+      radiusY
     );
     
     // Envia pacote 'map' com tiles
