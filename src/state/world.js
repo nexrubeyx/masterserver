@@ -271,13 +271,10 @@ handleDisconnect(ws) {
     player.moving = false;
   } catch {}
 
-  // 2) Notifica outros no mesmo mapa que este player saiu
-  // O cliente ml.min.js espera { type: "remove", id: <id> }
-  try {
-    this.sendToOthersInMap(player, { type: 'remove', id: String(player.sessionId) });
-  } catch (err) {
-    this.logger?.warn({ err: err?.message, stack: err?.stack, sessionId: player?.sessionId }, 'Falha ao broadcast remove');
-  }
+  // 2) NÃO envia evento "remove" - o cliente agora depende exclusivamente do sweep da lista "pl"
+  // para remover jogadores que desconectaram. Isso corresponde ao comportamento do servidor original.
+  // Quando o próximo pacote "pl" for enviado aos outros jogadores, este jogador não estará incluído,
+  // fazendo com que o cliente o remova automaticamente durante o sweep.
 
   // 3) Salva estado do jogador no banco de dados (não bloqueante)
   (async () => {

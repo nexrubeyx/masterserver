@@ -141,30 +141,19 @@ async function testGhostPlayerFix() {
     }
     console.log('✓ Jogador 1 foi removido da lista de jogadores no mapa\n');
 
-    // Verifica que jogador 2 recebeu evento de remoção
-    console.log('Verificando que jogador 2 recebeu evento de remoção...');
+    // Verifica que jogador 2 NÃO recebeu evento de remoção
+    // O cliente agora depende exclusivamente do sweep da lista de jogadores (pl) para remover jogadores
+    console.log('Verificando que jogador 2 NÃO recebeu evento de remoção...');
     const removeMessages = ws2.sentMessages.filter(msg => msg.type === 'remove');
     
-    if (removeMessages.length === 0) {
-      console.error('✗ FALHA: Jogador 2 não recebeu nenhum evento de remoção');
-      console.error('Mensagens recebidas:', ws2.sentMessages);
+    if (removeMessages.length > 0) {
+      console.error('✗ FALHA: Jogador 2 recebeu evento de remoção (não deveria receber)');
+      console.error('Mensagens recebidas:', removeMessages);
       process.exit(1);
     }
     
-    console.log(`✓ Jogador 2 recebeu ${removeMessages.length} evento(s) de remoção`);
-    
-    // Verifica que o evento de remoção tem o ID correto
-    const removeEvent = removeMessages[0];
-    console.log(`  - Evento recebido: ${JSON.stringify(removeEvent)}`);
-    
-    if (removeEvent.id !== session1.player.sessionId) {
-      console.error(`✗ FALHA: ID no evento de remoção está incorreto`);
-      console.error(`  Esperado: ${session1.player.sessionId}`);
-      console.error(`  Recebido: ${removeEvent.id}`);
-      process.exit(1);
-    }
-    
-    console.log(`✓ ID no evento de remoção está correto: ${removeEvent.id}\n`);
+    console.log('✓ Jogador 2 NÃO recebeu evento de remoção (comportamento esperado)');
+    console.log('  - O cliente removerá o jogador quando processar o próximo pacote "pl"\n');
 
     // Verifica que jogador 2 ainda está conectado
     console.log('Verificando que jogador 2 ainda está conectado...');
@@ -193,9 +182,9 @@ async function testGhostPlayerFix() {
     console.log('✓ World finalizado\n');
 
     console.log('=== TODOS OS TESTES PASSARAM ===');
-    console.log('\n✓ Ghost players são corretamente removidos quando jogadores desconectam');
-    console.log('✓ Evento de remoção é broadcast para outros jogadores');
-    console.log('✓ ID do jogador no evento de remoção está correto (sessionId)');
+    console.log('\n✓ Ghost players são corretamente removidos das estruturas quando jogadores desconectam');
+    console.log('✓ Evento de remoção NÃO é mais enviado (comportamento correto)');
+    console.log('✓ Cliente removerá jogadores através do sweep do pacote "pl"');
     console.log('✓ handleDisconnect é idempotente');
     
     process.exit(0);
