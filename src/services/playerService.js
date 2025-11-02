@@ -140,6 +140,16 @@ export class PlayerService {
   /**
    * Calcula limites máximos da origem do viewport
    * 
+   * A origem do viewport é o canto superior esquerdo da área visível.
+   * Este método calcula qual é a posição máxima que essa origem pode ter
+   * antes do viewport ultrapassar os limites do mapa.
+   * 
+   * Por exemplo, em um mapa 50x50 com viewport de 36x26 (raio 18x13):
+   * - maxOX = 50 - 36 = 14 (origem X máxima)
+   * - maxOY = 50 - 26 = 24 (origem Y máxima)
+   * 
+   * Isso garante que o viewport sempre fique dentro dos limites do mapa.
+   * 
    * @param {Object} map - Mapa atual
    * @returns {Object} { maxOX, maxOY } - Limites máximos da origem
    * @private
