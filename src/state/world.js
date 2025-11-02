@@ -120,6 +120,27 @@ export class World {
     this.logger.info({ TICK_MS }, 'Game loop iniciado');
   }
 
+
+  // ADICIONE este método dentro da classe World
+broadcastPlayersListToMap(mapId) {
+  if (!mapId) return;
+  try {
+    // Pega lista ATUAL de players no mapa (já sem o desconectado)
+    const players = this.getPlayersInMap(mapId);
+
+    // Monta o "pl" no formato esperado pelo client:
+    // data é um array de strings JSON contendo pacotes 'p'
+    const data = players.map((p) => {
+      const snap = this.playerService.makePlayerSnapshotPacket(p); // { type:'p', id, x, y, ... }
+      return JSON.stringify(snap);
+    });
+
+    this.broadcastInMap(mapId, { type: 'pl', data });
+  } catch (err) {
+    this.logger?.warn({ err: err?.message, stack: err?.stack, mapId }, 'Falha ao broadcast pl');
+  }
+}
+
   /**
    * Desliga o mundo graciosamente
    * 
@@ -258,7 +279,12 @@ export class World {
    * 
    * @param {WebSocket} ws - Conexão que foi fechada
    */
-// Dentro da classe World
+  // Dentro da classe World
+  // ... imports e código existentes ...
+
+
+
+// SUBSTITUA seu handleDisconnect por este (dentro da classe World)
 handleDisconnect(ws) {
   // Idempotente: se já foi removido, sai
   const session = this.sessions.get(ws);
@@ -266,17 +292,65 @@ handleDisconnect(ws) {
 
   const { player, user } = session;
 
-  // 1) Para movimento do jogador (se seu loop usa estas flags)
+  // 1) Para movimento do jogador (se seu loop usa esta flag)
   try {
     player.moving = false;
   } catch {}
 
-  // 2) NÃO envia evento "remove" - o cliente agora depende exclusivamente do sweep da lista "pl"
-  // para remover jogadores que desconectaram. Isso corresponde ao comportamento do servidor original.
-  // Quando o próximo pacote "pl" for enviado aos outros jogadores, este jogador não estará incluído,
-  // fazendo com que o cliente o remova automaticamente durante o sweep.
+  // 2) Envia aos outros do mesmo mapa: mensagem e efeito "poofed"
+  try {
+    const name = (player?.name && String(player.name)) || `guest-${player?.sessionId ?? ''}`;
+    const leaveText = `<span style='color:#99ff99'>${name} has left.</span>`;
 
-  // 3) Salva estado do jogador no banco de dados (não bloqueante)
+    // Mensagem no chat
+    this.sendToOthersInMap?.(player, { type: 'message', text: leaveText });
+
+    // Template do efeito (safe re-send)
+    this.sendToOthersInMap?.(player, {
+      type: 'fx_tpl',
+      tpl: 'poofed',
+      code:
+        `{sound: 'pop',x: 13,y: 38,dir: 16777215,template: 'poofed',base_template: 'poofed',start: function()
+{
+    this.life = 90;
+
+    for(var i =0;i<15;i++) {
+        var c = this.sprite(919);
+        c.tint = this.dir;
+        c.y += 8;
+        c.dx = Math.random()*0.4-0.2;
+        c.dy = Math.random()*0.4-0.6;
+        c.scale.x = 1;
+        c.scale.y = 1;
+        c.dr = Math.random() > 0.5 ? 0.005 : -0.005;
+        c.alpha = 0.20;
+        c.life = 90;
+    }
+},run: function()
+{
+},move: function(p)
+{
+    p.alpha -= Math.random()*0.010;
+    p.scale.x += 0.02;
+    p.scale.y += 0.02;
+    p.rotation += p.dr;
+}}`
+    });
+
+    // Execução do efeito na posição do jogador
+    this.sendToOthersInMap?.(player, {
+      type: 'fx',
+      tpl: 'poofed',
+      x: Number(player?.x ?? 0),
+      y: Number(player?.y ?? 0),
+      s: 'pop',
+      d: 16777215
+    });
+  } catch (err) {
+    this.logger?.warn({ err: err?.message, stack: err?.stack, sessionId: player?.sessionId }, 'Falha ao enviar mensagem/efeito de saída');
+  }
+
+  // 3) Persistência assíncrona do estado completo
   (async () => {
     try {
       await this.playerService.persistFullState(player);
@@ -287,14 +361,13 @@ handleDisconnect(ws) {
 
   // 4) Remove das estruturas de dados
   try {
-    // Remove da lista de sessões
+    // Remove sessão
     this.sessions.delete(ws);
 
-    // Remove do índice de jogadores (Map por sessionId)
+    // Remove do índice de players
     if (player?.sessionId && this.players.has(player.sessionId)) {
       this.players.delete(player.sessionId);
     } else {
-      // Fallback: remove por identidade se necessário
       for (const [sid, p] of this.players) {
         if (p === player) {
           this.players.delete(sid);
@@ -303,7 +376,7 @@ handleDisconnect(ws) {
       }
     }
 
-    // Se houver indexação por mapa, limpe também
+    // Remove dos índices por mapa (se houver)
     this.mapService?.removePlayerFromMap?.(player?.mapId, player);
   } catch (err) {
     this.logger?.warn({ err: err?.message, stack: err?.stack, sessionId: player?.sessionId }, 'Falha ao limpar estruturas no disconnect');
@@ -314,6 +387,11 @@ handleDisconnect(ws) {
     { sessionId: player?.sessionId, name: player?.name, userId: user?._id, ip: ws?._ip },
     'Jogador desconectado e removido do mundo'
   );
+
+  // 6) Broadcast imediato do "pl" para o mapa (ATUALIZA A LISTA NO CLIENT)
+  try {
+    this.broadcastPlayersListToMap?.(player?.mapId);
+  } catch {}
 }
 
   /**
