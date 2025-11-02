@@ -1,0 +1,10 @@
+{
+  "tpl": "chest",
+  "name": "Baú",
+  "desc": "Armazena itens",
+  "stack": false,
+  "pickup": false,
+  "block": true,
+  "spr": 789,
+  "build": "789f"
+}

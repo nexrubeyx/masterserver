@@ -8,13 +8,16 @@
     "node": ">=22.0.0"
   },
   "scripts": {
-    "start": "node src/server.js",
-    "dev": "NODE_ENV=development node --watch src/server.js",
+    "start": "node src/index.js",
+    "start:full": "node src/server.js",
+    "dev": "NODE_ENV=development node --watch src/index.js --watch-path=config/templates --watch-path=maps --watch-path=src",
+    "dev:full": "NODE_ENV=development node --watch src/server.js",
     "lint": "node -e \"console.log('Use seu linter favorito localmente, este projeto é JS puro sem TS')\""
   },
   "dependencies": {
     "ajv": "^8.17.1",
     "bcryptjs": "^2.4.3",
+    "chokidar": "^4.0.3",
     "dotenv": "^16.4.5",
     "mongodb": "^6.9.0",
     "pino": "^9.3.2",
