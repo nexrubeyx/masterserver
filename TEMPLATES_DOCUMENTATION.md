@@ -7,6 +7,8 @@ O sistema de templates de objetos permite definir objetos que podem ser colocado
 1. **Templates Estáticos** - Definidos em `src/models/objectTemplates.js` (para templates globais)
 2. **Templates de Mapa** - Definidos nos arquivos JSON de mapa em `src/maps/worlds/*.json` (específicos do mapa)
 
+Além de definir templates, você também pode **colocar instâncias desses templates em coordenadas específicas do mapa** usando o array `objectPlacements`.
+
 ## Funcionalidades Implementadas
 
 ### 1. Envio de Templates Após Login
@@ -30,7 +32,7 @@ Os mapas agora podem definir seus próprios templates diretamente no arquivo JSO
 ```json
 {
   "id": "caverealm",
-  "version": 18,
+  "version": 19,
   "title": "Custom Map",
   "width": 15,
   "height": 15,
@@ -46,6 +48,18 @@ Os mapas agora podem definir seus próprios templates diretamente no arquivo JSO
       "build": "650f,a"
     }
   ],
+  "objectPlacements": [
+    {
+      "tpl": "torch_wall",
+      "x": 5,
+      "y": 8
+    },
+    {
+      "tpl": "torch_wall",
+      "x": 10,
+      "y": 8
+    }
+  ],
   "tiles": [
     [325, 325, 325, ...],
     ...
@@ -53,7 +67,74 @@ Os mapas agora podem definir seus próprios templates diretamente no arquivo JSO
 }
 ```
 
-### 3. Estrutura de um Template
+### 3. Colocação de Objetos no Mapa (objectPlacements)
+
+**NOVO:** Agora você pode colocar objetos template em coordenadas específicas do mapa usando o array `objectPlacements`. Isso permite popular o mapa com objetos estáticos (árvores, barris, tochas, baús, etc.) sem precisar construí-los manualmente no jogo.
+
+**Como Funciona:**
+
+1. Defina os templates no array `templates` do mapa
+2. Adicione um array `objectPlacements` com as posições onde deseja colocar cada objeto
+3. Quando um jogador entra no mapa, todos os objetos são automaticamente colocados
+
+**Formato de objectPlacements:**
+
+```json
+{
+  "objectPlacements": [
+    {
+      "tpl": "tree_oak",      // ID do template (deve existir em templates)
+      "x": 5,                 // Coordenada X no mapa
+      "y": 8                  // Coordenada Y no mapa
+    }
+  ]
+}
+```
+
+**Exemplo Completo:**
+
+```json
+{
+  "id": "caverealm",
+  "version": 19,
+  "templates": [
+    {
+      "tpl": "tree_oak",
+      "name": "Árvore de Carvalho",
+      "desc": "Uma árvore grande.",
+      "stack": 0,
+      "pickup": 0,
+      "block": 1,
+      "spr": 720,
+      "build": "-305, o|-20| -289f"
+    },
+    {
+      "tpl": "barrel_small",
+      "name": "Barril Pequeno",
+      "desc": "Um pequeno barril.",
+      "stack": 0,
+      "pickup": 0,
+      "block": 0,
+      "spr": 812,
+      "build": "812"
+    }
+  ],
+  "objectPlacements": [
+    { "tpl": "tree_oak", "x": 3, "y": 3 },
+    { "tpl": "tree_oak", "x": 11, "y": 3 },
+    { "tpl": "barrel_small", "x": 5, "y": 7 },
+    { "tpl": "barrel_small", "x": 9, "y": 7 }
+  ]
+}
+```
+
+**Importante:**
+- Os templates referenciados em `objectPlacements` devem estar definidos em `templates` ou em `src/models/objectTemplates.js`
+- As coordenadas x,y devem estar dentro dos limites do mapa (0 a width-1, 0 a height-1)
+- Múltiplos objetos podem ser colocados na mesma coordenada (empilhados)
+- **Sempre incremente a versão do mapa** ao adicionar ou modificar objectPlacements
+
+### 4. Estrutura de um Template
 
 Cada template deve ter os seguintes campos:
 
@@ -202,7 +283,46 @@ Adicione no arquivo JSON do mapa:
 }
 ```
 
-### Exemplo 3: Usar Templates com Protocolo de Objetos
+### Exemplo 3: Colocar Objetos no Mapa com objectPlacements
+
+**NOVO:** Use objectPlacements para popular o mapa com objetos estáticos:
+
+```json
+{
+  "id": "village",
+  "version": 3,
+  "width": 20,
+  "height": 20,
+  "templates": [
+    {
+      "tpl": "tree_oak",
+      "name": "Árvore de Carvalho",
+      "spr": 720,
+      "block": 1,
+      "build": "-305, o|-20| -289f"
+    },
+    {
+      "tpl": "house",
+      "name": "Casa",
+      "spr": 850,
+      "block": 1,
+      "build": "850"
+    }
+  ],
+  "objectPlacements": [
+    { "tpl": "tree_oak", "x": 5, "y": 5 },
+    { "tpl": "tree_oak", "x": 7, "y": 5 },
+    { "tpl": "tree_oak", "x": 9, "y": 5 },
+    { "tpl": "house", "x": 10, "y": 10 },
+    { "tpl": "house", "x": 14, "y": 10 }
+  ],
+  "tiles": [...]
+}
+```
+
+Quando um jogador entra neste mapa, verá automaticamente as 3 árvores e 2 casas nos locais especificados.
+
+### Exemplo 4: Usar Templates com Protocolo de Objetos
 
 Uma vez que os templates estão registrados e enviados ao cliente, você pode usá-los com o protocolo de objetos:
 
@@ -347,7 +467,9 @@ Verifique:
 - `src/controllers/messageRouter.js` - Adicionado envio de templates após login
 - `src/services/templateService.js` - Refatorado para suportar templates dinâmicos
 - `src/services/mapService.js` - Adicionado carregamento de templates de mapas
-- `src/maps/worlds/test2.json` - Exemplo com templates incluídos
+- `src/services/mapObjectsLoader.js` - Adicionado suporte para objectPlacements (objetos estáticos)
+- `src/services/playerService.js` - Adicionado envio de objectPlacements ao jogador
+- `src/maps/worlds/test2.json` - Exemplo com templates e objectPlacements incluídos
 
 ## Compatibilidade
 

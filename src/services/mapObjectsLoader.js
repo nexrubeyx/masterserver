@@ -1,11 +1,11 @@
 /**
- * Carregador de Objetos do Mapa - Spawns de Objetos Animados
+ * Carregador de Objetos do Mapa - Spawns de Objetos Animados e Objetos Estáticos
  * 
- * Este módulo é responsável por enviar objetos animados do mapa para os jogadores.
+ * Este módulo é responsável por enviar objetos do mapa para os jogadores.
  * Quando um jogador entra em um mapa ou muda de viewport, esta função envia
- * todos os objetos animados (água, fogo, portais, etc) que devem aparecer.
+ * todos os objetos (animados e estáticos) que devem aparecer.
  * 
- * Os objetos são definidos no JSON do mapa na propriedade 'objectSpawns':
+ * Objetos Animados são definidos em 'objectSpawns':
  * {
  *   "objectSpawns": [
  *     {
@@ -16,6 +16,17 @@
  *       "name": "Água",
  *       "tint": "00AAFF",
  *       "alpha": 0.8
+ *     }
+ *   ]
+ * }
+ * 
+ * Objetos Estáticos (templates) são definidos em 'objectPlacements':
+ * {
+ *   "objectPlacements": [
+ *     {
+ *       "tpl": "tree_oak",
+ *       "x": 5,
+ *       "y": 8
  *     }
  *   ]
  * }
@@ -77,5 +88,47 @@ export function sendMapObjectSpawnsToPlayer(player, map, world) {
     // === PASSO 2: Coloca o objeto no mapa ===
     // Instancia o objeto na posição especificada
     world.sendTo(player, buildPlaceObjectPacket(s.x | 0, s.y | 0, tpl));
+  }
+}
+
+/**
+ * Envia todos os objetos estáticos (placements) do mapa para um jogador
+ * 
+ * @param {Object} player - Jogador que deve receber os objetos
+ * @param {Object} map - Objeto do mapa contendo objectPlacements
+ * @param {Object} world - Instância do World para enviar pacotes
+ * 
+ * Para cada placement no mapa:
+ * 1. Coloca o objeto na posição especificada usando o template definido
+ * 
+ * Os templates devem estar previamente definidos no array 'templates' do mapa
+ * ou no registro global de templates. Os templates já foram enviados ao cliente
+ * durante o login via sendAllTemplates().
+ * 
+ * Exemplo no JSON do mapa:
+ * {
+ *   "templates": [
+ *     { "tpl": "tree_oak", "name": "Árvore", "spr": 720, ... }
+ *   ],
+ *   "objectPlacements": [
+ *     { "tpl": "tree_oak", "x": 5, "y": 8 },
+ *     { "tpl": "tree_oak", "x": 10, "y": 12 }
+ *   ]
+ * }
+ */
+export function sendMapObjectPlacementsToPlayer(player, map, world) {
+  // Obtém array de placements do mapa (ou array vazio se não definido)
+  const placements = Array.isArray(map.objectPlacements) ? map.objectPlacements : [];
+  
+  // Processa cada placement definido no mapa
+  for (const p of placements) {
+    // Validação básica - precisa ter tpl, x e y
+    if (!p.tpl || typeof p.x !== 'number' || typeof p.y !== 'number') {
+      continue;
+    }
+    
+    // Envia colocação do objeto no mapa
+    // O template já foi enviado ao cliente durante o login
+    world.sendTo(player, buildPlaceObjectPacket(p.x | 0, p.y | 0, p.tpl));
   }
 }
