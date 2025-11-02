@@ -374,8 +374,8 @@ export class MapService {
 
     // Itera sobre a grade do viewport
     // Ordem: coluna por coluna (cx), de cima para baixo (cy)
-    for (let cx = -rx; cx < rx; cx++) {
-      for (let cy = -ry; cy < ry; cy++) {
+    for (let cx = -rx; cx <= rx; cx++) {
+      for (let cy = -ry; cy <= ry; cy++) {
         // Calcula posição absoluta no mapa
         const tx = x + cx;
         const ty = y + cy;
