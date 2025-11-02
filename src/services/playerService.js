@@ -21,7 +21,7 @@
 
 import { savePlayerPosition } from '../models/Player.js';
 import { savePlayerState } from '../models/PlayerState.js';
-import { sendMapObjectSpawnsToPlayer } from './mapObjectsLoader.js';
+import { sendMapObjectSpawnsToPlayer, sendMapObjectPlacementsToPlayer } from './mapObjectsLoader.js';
 import { isDeepWater } from '../constants/tiles.js';
 
 export class PlayerService {
@@ -202,6 +202,9 @@ export class PlayerService {
 
     // Envia objetos animados presentes neste mapa
     sendMapObjectSpawnsToPlayer(player, map, this.world);
+    
+    // Envia objetos estáticos (placements de templates) presentes neste mapa
+    sendMapObjectPlacementsToPlayer(player, map, this.world);
   }
 
   /**

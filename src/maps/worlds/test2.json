@@ -1,6 +1,6 @@
 {
   "id": "caverealm",
-  "version": 18,
+  "version": 19,
   "title": "Custom Map",
   "width": 15,
   "height": 15,
@@ -44,6 +44,53 @@
       "block": 1,
       "spr": 800,
       "build": "800"
+    }
+  ],
+  "objectPlacements": [
+    {
+      "tpl": "tree_oak",
+      "x": 3,
+      "y": 3
+    },
+    {
+      "tpl": "tree_oak",
+      "x": 11,
+      "y": 3
+    },
+    {
+      "tpl": "barrel_small",
+      "x": 5,
+      "y": 7
+    },
+    {
+      "tpl": "barrel_small",
+      "x": 9,
+      "y": 7
+    },
+    {
+      "tpl": "chest_small",
+      "x": 7,
+      "y": 10
+    },
+    {
+      "tpl": "torch_wall",
+      "x": 3,
+      "y": 5
+    },
+    {
+      "tpl": "torch_wall",
+      "x": 11,
+      "y": 5
+    },
+    {
+      "tpl": "torch_wall",
+      "x": 3,
+      "y": 12
+    },
+    {
+      "tpl": "torch_wall",
+      "x": 11,
+      "y": 12
     }
   ],
   "tiles": [

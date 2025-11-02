@@ -7,6 +7,7 @@ Implementa autenticação (login/guest), mapa em JSON com vizinhos (transição 
 - **Autenticação**: Login com credenciais ou guest mode
 - **Mapas JSON**: Mapas editáveis em formato JSON com versionamento
 - **Templates de Objetos**: Sistema de templates dinâmico com suporte a templates por mapa
+- **Colocação de Objetos**: Sistema de objectPlacements para popular mapas com objetos estáticos em coordenadas específicas
 - **Movimento tile-by-tile**: Sistema de movimento fluido com validação
 - **Chat**: Sistema de mensagens entre jogadores
 - **Água Profunda**: Sistema completo de água com animação e colisão (tiles 36, 248, 325)
@@ -30,9 +31,13 @@ npm start
 ```
 
 ## Testes
-Execute os testes automatizados para verificar a implementação de água profunda:
+Execute os testes automatizados:
 ```bash
+# Testar implementação de água profunda
 node test-deep-water.js
+
+# Testar funcionalidade de objectPlacements
+node test-object-placements.js
 ```
 
 ## Documentação Adicional
