@@ -172,7 +172,12 @@ broadcastPlayersListToMap(mapId) {
       try {
         // Salva estado dos jogadores que estavam dormindo
         await this.playerService.persistFullState(sleepData.player);
-      } catch { }
+      } catch (err) {
+        this.logger?.warn(
+          { err: err?.message, stack: err?.stack, sessionId: sleepData.player?.sessionId },
+          'Erro ao salvar estado de jogador dormindo durante shutdown'
+        );
+      }
     }
     this.sleepingPlayers.clear();
 
@@ -184,12 +189,19 @@ broadcastPlayersListToMap(mapId) {
 
         // Salva estado completo no banco (não bloqueia shutdown)
         await this.playerService.persistFullState(session.player);
-      } catch { }
+      } catch (err) {
+        this.logger?.warn(
+          { err: err?.message, stack: err?.stack, sessionId: session.player?.sessionId },
+          'Erro ao salvar estado de jogador durante shutdown'
+        );
+      }
 
       try {
         // Fecha conexão WebSocket
         ws.close();
-      } catch { }
+      } catch (err) {
+        this.logger?.warn({ err: err?.message }, 'Erro ao fechar WebSocket durante shutdown');
+      }
     }
 
     // Limpa mapas de sessões e jogadores
@@ -221,6 +233,10 @@ broadcastPlayersListToMap(mapId) {
   attachSession(ws, { user, player }) {
     // === VERIFICAÇÃO DE JOGADOR DORMINDO ===
     // Se este usuário tem um jogador dormindo, cancela o timer e reutiliza o jogador
+    let wasWakingFromSleep = false;
+    let wakePlayerMapId = null;
+    let wakePlayerName = null;
+    
     for (const [sessionId, sleepData] of this.sleepingPlayers) {
       if (String(sleepData.user?._id) === String(user?._id)) {
         // Cancela o timer de desconexão
@@ -238,9 +254,10 @@ broadcastPlayersListToMap(mapId) {
         // Atualiza o player para usar o estado salvo
         Object.assign(player, wakingPlayer);
         
-        // Envia mensagem de "wake up"
-        const name = (player?.name && String(player.name)) || `guest-${sessionId}`;
-        const wakeText = `<span style='color:#99ff99'>${name} wakes up.</span>`;
+        // Marca para enviar mensagem depois
+        wasWakingFromSleep = true;
+        wakePlayerMapId = player.mapId;
+        wakePlayerName = (player?.name && String(player.name)) || `guest-${sessionId}`;
         
         // Log
         this.logger?.info(
@@ -301,6 +318,12 @@ broadcastPlayersListToMap(mapId) {
     this.players.set(sessionId, player);      // sessionId -> player
 
     this.logger.info({ user: user.username, sessionId, mapId: player.mapId }, 'Sessão anexada');
+
+    // Se o jogador estava dormindo, envia mensagem de "wake up"
+    if (wasWakingFromSleep && wakePlayerMapId && wakePlayerName) {
+      const wakeText = `<span style='color:#99ff99'>${wakePlayerName} wakes up.</span>`;
+      this.sendToOthersInMap(player, { type: 'message', text: wakeText });
+    }
 
     // Broadcast imediato do "pl" para garantir que todos os clientes no mapa
     // reconciliem suas listas de entidades e removam quaisquer ghosts remanescentes
