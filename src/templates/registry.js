@@ -44,12 +44,18 @@ export class TemplateRegistry {
     // Configura watcher para hot-reload
     this.watcher = chokidar.watch(`${this.templatesDir}/*.json`, {
       persistent: true,
-      ignoreInitial: true
+      ignoreInitial: true,
+      awaitWriteFinish: {
+        stabilityThreshold: 100,
+        pollInterval: 50
+      }
     });
 
     this.watcher.on('add', (filePath) => this.handleFileChange(filePath));
     this.watcher.on('change', (filePath) => this.handleFileChange(filePath));
     this.watcher.on('unlink', (filePath) => this.handleFileDelete(filePath));
+    this.watcher.on('error', (err) => this.logger.error({ err }, 'Watcher error'));
+    this.watcher.on('ready', () => this.logger.debug('Template watcher ready'));
 
     this.logger.info({ dir: this.templatesDir }, 'Template registry initialized with hot-reload');
   }

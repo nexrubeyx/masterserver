@@ -43,10 +43,16 @@ export class MapLoader {
     // Configura watcher para hot-reload
     this.watcher = chokidar.watch(this.mapFile, {
       persistent: true,
-      ignoreInitial: true
+      ignoreInitial: true,
+      awaitWriteFinish: {
+        stabilityThreshold: 100,
+        pollInterval: 50
+      }
     });
 
     this.watcher.on('change', () => this.handleMapChange());
+    this.watcher.on('error', (err) => this.logger.error({ err }, 'Watcher error'));
+    this.watcher.on('ready', () => this.logger.debug('Map watcher ready'));
 
     this.logger.info({ file: this.mapFile }, 'Map loader initialized with hot-reload');
   }
