@@ -10,11 +10,8 @@
  */
 
 import { spawn } from 'child_process';
-import { createRequire } from 'module';
+import { WebSocket } from 'ws';
 import fs from 'fs/promises';
-
-const require = createRequire(import.meta.url);
-const { WebSocket } = require('./node_modules/ws/index.js');
 
 let serverProcess;
 let testResults = [];

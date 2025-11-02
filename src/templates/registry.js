@@ -23,6 +23,7 @@ export class TemplateRegistry {
     this.templatesDir = templatesDir;
     this.logger = logger;
     this.templates = new Map(); // Map<tpl: string, template: object>
+    this.fileToTemplates = new Map(); // Map<filePath: string, Set<tpl: string>>
     this.watcher = null;
     this.onChangeCallbacks = [];
   }
@@ -88,6 +89,14 @@ export class TemplateRegistry {
       const content = await fs.readFile(filePath, 'utf-8');
       const data = JSON.parse(content);
 
+      // Remove templates antigos deste arquivo
+      if (this.fileToTemplates.has(filePath)) {
+        const oldTemplates = this.fileToTemplates.get(filePath);
+        for (const tplName of oldTemplates) {
+          this.templates.delete(tplName);
+        }
+      }
+
       // Determina o formato e extrai templates
       let templates = [];
       
@@ -102,12 +111,16 @@ export class TemplateRegistry {
         templates = Object.values(data);
       }
 
-      // Registra cada template
+      // Registra cada template e mantém mapeamento
+      const tplNames = new Set();
       for (const tpl of templates) {
         if (tpl.tpl) {
           this.templates.set(tpl.tpl, tpl);
+          tplNames.add(tpl.tpl);
         }
       }
+      
+      this.fileToTemplates.set(filePath, tplNames);
 
       this.logger.debug({ file: path.basename(filePath), count: templates.length }, 'Template file loaded');
     } catch (err) {
@@ -129,9 +142,18 @@ export class TemplateRegistry {
    */
   async handleFileDelete(filePath) {
     this.logger.info({ file: path.basename(filePath) }, 'Template file deleted');
-    // Remove templates deste arquivo (não temos um mapeamento perfeito, então recarregamos tudo)
-    this.templates.clear();
-    await this.loadAll();
+    
+    // Remove apenas os templates deste arquivo específico
+    if (this.fileToTemplates.has(filePath)) {
+      const tplNames = this.fileToTemplates.get(filePath);
+      for (const tplName of tplNames) {
+        this.templates.delete(tplName);
+      }
+      this.fileToTemplates.delete(filePath);
+      
+      this.logger.debug({ count: tplNames.size }, 'Templates removed from deleted file');
+    }
+    
     this.notifyChange();
   }
 
