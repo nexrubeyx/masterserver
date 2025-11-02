@@ -123,14 +123,15 @@ export class PlayerService {
    * Sistema de Chunks:
    * - O viewport não segue o jogador tile-by-tile
    * - A origem é "encaixada" em limites de chunks
-   * - Um chunk tem metade do tamanho do viewport
-   * - Novo viewport só é enviado quando jogador cruza metade do chunk anterior
+   * - Um chunk tem o mesmo tamanho do raio do viewport (MAP_VIEW_RADIUS)
+   * - Novo viewport só é enviado quando jogador cruza limite de chunk
    * 
    * @param {Object} player - Jogador
    * @returns {Object} { ox, oy } - Origem do viewport encaixada em chunks
    * 
    * Exemplo com raio 18x13 (viewport 37x27):
-   * - Chunk size: 18x13 (metade do viewport)
+   * - Chunk size: 18x13 (igual ao raio do viewport)
+   * - Viewport total: 37x27 tiles (2*raio + 1)
    * - Se player está em (50, 50):
    *   - chunkX = floor(50 / 18) = 2
    *   - baseX = 2 * 18 = 36
@@ -138,7 +139,7 @@ export class PlayerService {
    * - Player precisa mover 18 tiles para mudar de chunk
    */
   getViewportOrigin(player) {
-    // Tamanho do chunk = metade do viewport (aproximadamente MAP_VIEW_RADIUS)
+    // Tamanho do chunk = raio do viewport (MAP_VIEW_RADIUS)
     const chunkWidth = this.env.MAP_VIEW_RADIUS_X;
     const chunkHeight = this.env.MAP_VIEW_RADIUS_Y;
     
