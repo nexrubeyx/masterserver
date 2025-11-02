@@ -9,11 +9,23 @@ let additionalTemplates = [];
  * @param {Array} newTemplates - Array de templates para adicionar
  */
 export function registerTemplates(newTemplates) {
-  if (!Array.isArray(newTemplates)) return;
+  if (!Array.isArray(newTemplates)) {
+    console.warn('registerTemplates: Input deve ser um array, recebido:', typeof newTemplates);
+    return;
+  }
   
   // Evita duplicatas - só adiciona se não existir em templates estáticos ou adicionais
   for (const newTpl of newTemplates) {
-    if (!newTpl.tpl) continue;
+    // Validação básica de campos obrigatórios
+    if (!newTpl.tpl || typeof newTpl.tpl !== 'string') {
+      console.warn('registerTemplates: Template sem ID válido ignorado:', newTpl);
+      continue;
+    }
+    
+    if (!newTpl.name || typeof newTpl.spr !== 'number') {
+      console.warn(`registerTemplates: Template "${newTpl.tpl}" está incompleto (falta name ou spr)`, newTpl);
+      continue;
+    }
     
     // Verifica se já existe nos templates estáticos
     const existsInStatic = templates.find(t => t.tpl === newTpl.tpl);
@@ -53,9 +65,9 @@ export function sendTemplate(ws, t) {
     tpl: t.tpl,
     name: t.name,
     desc: t.desc,
-    stack: t.stack ? 1 : 0,
-    pickup: t.pickup ? 1 : 0,
-    block: t.block ? 1 : 0,
+    stack: Number(!!t.stack),
+    pickup: Number(!!t.pickup),
+    block: Number(!!t.block),
     spr: t.spr,
     build: t.build || ""
   }));
