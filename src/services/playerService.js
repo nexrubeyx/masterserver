@@ -115,22 +115,49 @@ export class PlayerService {
   }
 
   /**
-   * Calcula origem do viewport para um jogador
+   * Calcula origem do viewport para um jogador usando sistema de chunks
    * 
    * O viewport é a área retangular de tiles visíveis ao redor do jogador.
    * A origem (ox, oy) é o canto superior esquerdo desta área.
    * 
-   * @param {Object} player - Jogador
-   * @returns {Object} { ox, oy } - Origem do viewport
+   * Sistema de Chunks:
+   * - O viewport não segue o jogador tile-by-tile
+   * - A origem é "encaixada" em limites de chunks
+   * - Um chunk tem o mesmo tamanho do raio do viewport (MAP_VIEW_RADIUS)
+   * - Novo viewport só é enviado quando jogador cruza limite de chunk
    * 
-   * Exemplo: se player está em (50, 50) e raio é 18x13:
-   * - ox = 50 - 18 = 32
-   * - oy = 50 - 13 = 37
-   * - Viewport vai de (32, 37) até (50+18, 50+13)
+   * @param {Object} player - Jogador
+   * @returns {Object} { ox, oy } - Origem do viewport encaixada em chunks
+   * 
+   * Exemplo com raio 18x13 (viewport 37x27):
+   * - Chunk size: 18x13 (igual ao raio do viewport)
+   * - Viewport total: 37x27 tiles (2*raio + 1)
+   * - Se player está em (50, 50):
+   *   - chunkX = floor(50 / 18) = 2
+   *   - baseX = 2 * 18 = 36
+   *   - ox = 36 - 18 = 18
+   * - Player precisa mover 18 tiles para mudar de chunk
    */
   getViewportOrigin(player) {
-    const ox = player.x - this.env.MAP_VIEW_RADIUS_X;
-    const oy = player.y - this.env.MAP_VIEW_RADIUS_Y;
+    // Tamanho do chunk = raio do viewport (MAP_VIEW_RADIUS)
+    const chunkWidth = this.env.MAP_VIEW_RADIUS_X;
+    const chunkHeight = this.env.MAP_VIEW_RADIUS_Y;
+    
+    // Calcula em qual chunk o jogador está
+    // floor(x / chunkWidth) dá o índice do chunk
+    // Nota: player.x e player.y são sempre >= 0 devido à validação de bordas no tickPlayer
+    const chunkX = Math.floor(player.x / chunkWidth);
+    const chunkY = Math.floor(player.y / chunkHeight);
+    
+    // Calcula a posição base do chunk (canto superior esquerdo do chunk)
+    const baseX = chunkX * chunkWidth;
+    const baseY = chunkY * chunkHeight;
+    
+    // Origem do viewport = posição base do chunk - raio do viewport
+    // Isso mantém o jogador aproximadamente no centro do viewport
+    const ox = baseX - this.env.MAP_VIEW_RADIUS_X;
+    const oy = baseY - this.env.MAP_VIEW_RADIUS_Y;
+    
     return { ox, oy };
   }
 
