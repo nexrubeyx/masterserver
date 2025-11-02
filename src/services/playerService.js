@@ -150,6 +150,10 @@ export class PlayerService {
    * 
    * Isso garante que o viewport sempre fique dentro dos limites do mapa.
    * 
+   * IMPORTANTE: Usa sempre MAP_VIEW_RADIUS (viewport), NÃO MAP_CHUNK_RADIUS.
+   * O chunk é apenas uma área de pré-carregamento maior; a origem do viewport
+   * é baseada na área visível real do cliente.
+   * 
    * @param {Object} map - Mapa atual
    * @returns {Object} { maxOX, maxOY } - Limites máximos da origem
    * @private
@@ -163,6 +167,34 @@ export class PlayerService {
     };
   }
 
+  /**
+   * Calcula origem do viewport para um jogador centralizado na posição do player
+   * 
+   * O viewport é a área retangular de tiles visíveis ao redor do jogador.
+   * A origem (ox, oy) é o canto superior esquerdo desta área.
+   * 
+   * Sistema Centralizado:
+   * - O viewport está sempre centralizado no jogador
+   * - A origem é calculada como player.x - raio_x, player.y - raio_y
+   * - Viewport é enviado quando o jogador se move o suficiente (coalescência)
+   * - Isso garante que o jogador sempre vê o conteúdo ao seu redor imediatamente
+   * 
+   * IMPORTANTE: Usa sempre MAP_VIEW_RADIUS (viewport), NÃO MAP_CHUNK_RADIUS.
+   * O chunk é apenas um payload maior de dados; a origem é baseada no viewport
+   * visível do cliente. O cliente sempre tem o mesmo tamanho de viewport, mas
+   * recebe mais tiles quando próximo das bordas (chunk loading).
+   * 
+   * @param {Object} player - Jogador
+   * @returns {Object} { ox, oy } - Origem do viewport centralizada no player
+   * 
+   * Exemplo com raio 18x13 (viewport 36x26):
+   * - Viewport total: 36x26 tiles (2*raio)
+   * - Se player está em (50, 50):
+   *   - ox = 50 - 18 = 32
+   *   - oy = 50 - 13 = 37
+   * - Viewport vai de (32, 37) até (68, 63)
+   * - Player está no centro em (50, 50)
+   */
   getViewportOrigin(player) {
     const radiusX = this.env.MAP_VIEW_RADIUS_X;
     const radiusY = this.env.MAP_VIEW_RADIUS_Y;
@@ -219,6 +251,10 @@ export class PlayerService {
    *   onde a origem é clamped e não pode mudar mais, mas o viewport precisa
    *   ser atualizado porque há novos tiles visíveis
    * 
+   * DESIGN: Usa MAP_VIEW_RADIUS para calcular origem (não MAP_CHUNK_RADIUS)
+   * porque a origem é baseada no viewport visível do cliente. O chunk é apenas
+   * uma área maior de pré-carregamento de dados enviada ao cliente.
+   * 
    * Múltiplas mudanças no mesmo tick resultam em apenas um envio.
    */
   markViewportDirty(player) {
@@ -253,6 +289,7 @@ export class PlayerService {
       player._pendingOY = oy;
       
       // Marca se deve usar chunk (área maior) quando perto da borda
+      // Esta flag é usada em flushViewportIfDirty para decidir o tamanho do payload
       if (map) {
         player._useChunkLoad = this._isNearBorder(player, map);
       }
