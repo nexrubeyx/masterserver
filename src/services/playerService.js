@@ -188,6 +188,24 @@ export class PlayerService {
   }
 
   /**
+   * Verifica se o jogador está próximo de uma borda do mapa
+   * 
+   * @param {Object} player - Jogador
+   * @param {Object} map - Mapa atual
+   * @returns {boolean} true se o jogador está dentro da distância threshold de uma borda
+   * @private
+   */
+  _isNearBorder(player, map) {
+    const threshold = this.env.CHUNK_BORDER_THRESHOLD;
+    return (
+      player.x < threshold ||
+      player.y < threshold ||
+      player.x >= (map.width - threshold) ||
+      player.y >= (map.height - threshold)
+    );
+  }
+
+  /**
    * Marca viewport como "sujo" (precisa ser enviado)
    * 
    * Chamado quando o jogador se move para uma nova região.
@@ -233,6 +251,11 @@ export class PlayerService {
       player._viewDirty = true;
       player._pendingOX = ox;
       player._pendingOY = oy;
+      
+      // Marca se deve usar chunk (área maior) quando perto da borda
+      if (map) {
+        player._useChunkLoad = this._isNearBorder(player, map);
+      }
     }
   }
 
@@ -250,6 +273,10 @@ export class PlayerService {
    * O que é enviado:
    * 1. Pacote 'map' com todos os tiles visíveis
    * 2. Objetos animados presentes no mapa
+   * 
+   * Se o jogador está próximo de uma borda do mapa (determinado pelo
+   * CHUNK_BORDER_THRESHOLD), envia um chunk maior para proporcionar
+   * uma experiência mais suave.
    */
   flushViewportIfDirty(player, now) {
     // Não faz nada se viewport não mudou
@@ -268,13 +295,20 @@ export class PlayerService {
     const map = this.world.mapService.getMap(player.mapId);
     if (!map) return;
     
-    // Constrói payload com tiles visíveis
+    // Determina se deve usar chunk (área maior) baseado na proximidade com bordas
+    const useChunk = player._useChunkLoad || false;
+    
+    // Seleciona raio apropriado: chunk se perto da borda, viewport normal caso contrário
+    const radiusX = useChunk ? this.env.MAP_CHUNK_RADIUS_X : this.env.MAP_VIEW_RADIUS_X;
+    const radiusY = useChunk ? this.env.MAP_CHUNK_RADIUS_Y : this.env.MAP_VIEW_RADIUS_Y;
+    
+    // Constrói payload com tiles visíveis (viewport ou chunk)
     const tiles = this.world.mapService.buildViewportPayload(
       map,
       player.x,
       player.y,
-      this.env.MAP_VIEW_RADIUS_X,
-      this.env.MAP_VIEW_RADIUS_Y
+      radiusX,
+      radiusY
     );
     
     // Envia pacote 'map' com tiles
