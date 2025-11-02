@@ -101,9 +101,7 @@ export function createWSServer(env, logger, world, attachToServer /* optional ht
 
     // === Envia todos os templates ao cliente no momento da conexão ===
     // Isso garante que o client tenha o dicionário (object_dict) antes de receber 'o'.
-    try { sendAllTemplates(ws); } catch (e) {
-      logger.warn({ err: e?.message }, 'Falha ao enviar templates (obj_tpl)');
-    }
+    
 
     /**
      * Handler executado quando uma mensagem é recebida do cliente

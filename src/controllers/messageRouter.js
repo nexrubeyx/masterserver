@@ -109,12 +109,7 @@ export function createMessageRouter(env, logger, world) {
         world.playerService.markViewportDirty(player);
         world.playerService.flushViewportIfDirty(player, Date.now());
 
-        // 5) Envia templates de objetos
-        world.objectService.sendTemplates(player);
-        
-        // 6) Envia objetos visíveis no viewport
-        world.objectService.sendVisibleObjects(player);
-
+ 
         // 7) Envia inventário inicial (vazio)
         world.sendTo(player, { type: 'inv', data: [] });
         
@@ -176,14 +171,6 @@ export function createMessageRouter(env, logger, world) {
 
       // === PICKUP ===
       // Jogador tenta coletar um objeto do mundo
-      case 'pickup': {
-        const session = world.getSession(ws);
-        if (!session) return;  // Sem sessão = não autenticado, ignora
-        
-        // Delega para ObjectService processar a coleta
-        world.objectService.handlePickup(session.player, packet.x, packet.y, packet.tpl);
-        return;
-      }
 
       // === TIPO DESCONHECIDO ===
       // Não deve acontecer pois schema já validou, mas por segurança ignora

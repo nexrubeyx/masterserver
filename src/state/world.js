@@ -22,7 +22,6 @@
 import { MapService } from '../services/mapService.js';
 import { PlayerService } from '../services/playerService.js';
 import { ChatService } from '../services/chatService.js';
-import { ObjectService } from '../services/objectService.js';
 
 export class World {
   /**
@@ -51,7 +50,6 @@ export class World {
     this.chatService = new ChatService(env, logger, this);
 
     // Serviço que gerencia objetos do mundo (stone, wood, bush, etc)
-    this.objectService = new ObjectService(env, logger, this);
 
     // Próximo ID de sessão a ser atribuído (incrementa sempre)
     this._nextSessionId = 1000;
@@ -80,7 +78,6 @@ export class World {
     await this.mapService.loadAll();
 
     // Inicializa o serviço de objetos (carrega estado dos objetos)
-    await this.objectService.init();
 
     // Inicia o loop principal do jogo
     this.startGameLoop();
@@ -126,24 +123,24 @@ export class World {
 
 
   // ADICIONE este método dentro da classe World
-  broadcastPlayersListToMap(mapId) {
-    if (!mapId) return;
-    try {
-      // Pega lista ATUAL de players no mapa (já sem o desconectado)
-      const players = this.getPlayersInMap(mapId);
+broadcastPlayersListToMap(mapId) {
+  if (!mapId) return;
+  try {
+    // Pega lista ATUAL de players no mapa (já sem o desconectado)
+    const players = this.getPlayersInMap(mapId);
 
-      // Monta o "pl" no formato esperado pelo client:
-      // data é um array de strings JSON contendo pacotes 'p'
-      const data = players.map((p) => {
-        const snap = this.playerService.makePlayerSnapshotPacket(p); // { type:'p', id, x, y, ... }
-        return JSON.stringify(snap);
-      });
+    // Monta o "pl" no formato esperado pelo client:
+    // data é um array de strings JSON contendo pacotes 'p'
+    const data = players.map((p) => {
+      const snap = this.playerService.makePlayerSnapshotPacket(p); // { type:'p', id, x, y, ... }
+      return JSON.stringify(snap);
+    });
 
-      this.broadcastInMap(mapId, { type: 'pl', data });
-    } catch (err) {
-      this.logger?.warn({ err: err?.message, stack: err?.stack, mapId }, 'Falha ao broadcast pl');
-    }
+    this.broadcastInMap(mapId, { type: 'pl', data });
+  } catch (err) {
+    this.logger?.warn({ err: err?.message, stack: err?.stack, mapId }, 'Falha ao broadcast pl');
   }
+}
 
   /**
    * Desliga o mundo graciosamente
@@ -236,35 +233,35 @@ export class World {
     let wasWakingFromSleep = false;
     let wakePlayerMapId = null;
     let wakePlayerName = null;
-
+    
     for (const [sessionId, sleepData] of this.sleepingPlayers) {
       if (String(sleepData.user?._id) === String(user?._id)) {
         // Cancela o timer de desconexão
         if (sleepData.timeoutId) {
           clearTimeout(sleepData.timeoutId);
         }
-
+        
         // Remove do mapa de sleeping
         this.sleepingPlayers.delete(sessionId);
-
+        
         // Reutiliza o jogador dormindo (mantém posição e estado)
         const wakingPlayer = sleepData.player;
         wakingPlayer.sleeping = false;
-
+        
         // Atualiza o player para usar o estado salvo
         Object.assign(player, wakingPlayer);
-
+        
         // Marca para enviar mensagem depois
         wasWakingFromSleep = true;
         wakePlayerMapId = player.mapId;
         wakePlayerName = (player?.name && String(player.name)) || `guest-${sessionId}`;
-
+        
         // Log
         this.logger?.info(
           { sessionId, name: player?.name, userId: user?._id },
           'Jogador reconectado durante período de sleep'
         );
-
+        
         break;
       }
     }
@@ -363,176 +360,176 @@ export class World {
 
 
 
-  /**
-     * Trata desconexão de um jogador - coloca em modo "sleeping"
-     * 
-     * Chamado quando uma conexão WebSocket é fechada.
-     * Em vez de remover imediatamente, o jogador vai "dormir" pelo tempo configurado
-     * em SLEEP_TIMEOUT_MS (padrão: 1 minuto).
-     * Após esse período, é removido permanentemente.
-     * 
-     * @param {WebSocket} ws - Conexão que foi fechada
-     */
-  handleDisconnect(ws) {
-    // Idempotente: se já foi removido, sai
-    const session = this.sessions.get(ws);
-    if (!session) return;
+/**
+   * Trata desconexão de um jogador - coloca em modo "sleeping"
+   * 
+   * Chamado quando uma conexão WebSocket é fechada.
+   * Em vez de remover imediatamente, o jogador vai "dormir" pelo tempo configurado
+   * em SLEEP_TIMEOUT_MS (padrão: 1 minuto).
+   * Após esse período, é removido permanentemente.
+   * 
+   * @param {WebSocket} ws - Conexão que foi fechada
+   */
+handleDisconnect(ws) {
+  // Idempotente: se já foi removido, sai
+  const session = this.sessions.get(ws);
+  if (!session) return;
 
-    const { player, user } = session;
+  const { player, user } = session;
 
-    // 1) Para movimento do jogador
-    try {
-      player.moving = false;
-    } catch { }
+  // 1) Para movimento do jogador
+  try {
+    player.moving = false;
+  } catch {}
 
-    // 2) Remove a sessão WebSocket (jogador não pode mais receber mensagens)
-    this.sessions.delete(ws);
+  // 2) Remove a sessão WebSocket (jogador não pode mais receber mensagens)
+  this.sessions.delete(ws);
 
-    // 3) Marca o jogador como "sleeping" (dormindo)
-    player.sleeping = true;
+  // 3) Marca o jogador como "sleeping" (dormindo)
+  player.sleeping = true;
 
-    // 4) Envia mensagem "goes to sleep" para outros jogadores no mapa
-    try {
-      const name = (player?.name && String(player.name)) || `guest-${player?.sessionId ?? ''}`;
-      const sleepText = `<span style='color:#99ff99'>${name} goes to sleep.</span>`;
+  // 4) Envia mensagem "goes to sleep" para outros jogadores no mapa
+  try {
+    const name = (player?.name && String(player.name)) || `guest-${player?.sessionId ?? ''}`;
+    const sleepText = `<span style='color:#99ff99'>${name} goes to sleep.</span>`;
 
-      // Envia a mensagem para outros jogadores
-      this.sendToOthersInMap?.(player, { type: 'message', text: sleepText });
-    } catch (err) {
-      this.logger?.warn({ err: err?.message, stack: err?.stack, sessionId: player?.sessionId }, 'Falha ao enviar mensagem de sleep');
-    }
-
-    // 5) Broadcast da lista de jogadores atualizada (com o campo sleeping)
-    try {
-      this.broadcastPlayersListToMap?.(player?.mapId);
-    } catch { }
-
-    // 6) Agenda a remoção final do jogador após o período de sleep configurado
-    const timeoutId = setTimeout(() => {
-      this.finalizeDisconnect(player, user, ws);
-    }, this.env.SLEEP_TIMEOUT_MS);
-
-    // 7) Armazena o jogador dormindo com o timer
-    this.sleepingPlayers.set(player.sessionId, {
-      player,
-      user,
-      timeoutId
-    });
-
-    // 8) Log
-    const sleepSeconds = Math.round(this.env.SLEEP_TIMEOUT_MS / 1000);
-    this.logger?.info(
-      { sessionId: player?.sessionId, name: player?.name, userId: user?._id, ip: ws?._ip, sleepTimeoutSec: sleepSeconds },
-      `Jogador colocado em modo sleep (${sleepSeconds}s até desconexão final)`
-    );
+    // Envia a mensagem para outros jogadores
+    this.sendToOthersInMap?.(player, { type: 'message', text: sleepText });
+  } catch (err) {
+    this.logger?.warn({ err: err?.message, stack: err?.stack, sessionId: player?.sessionId }, 'Falha ao enviar mensagem de sleep');
   }
 
-  /**
-   * Finaliza a desconexão de um jogador após o período de sleep
-   * 
-   * Chamado após 1 minuto do handleDisconnect para remover o jogador permanentemente.
-   * 
-   * @param {Object} player - Jogador a ser removido
-   * @param {Object} user - Usuário associado
-   * @param {WebSocket} ws - Conexão WebSocket original (já fechada)
-   */
-  finalizeDisconnect(player, user, ws) {
-    // Remove do mapa de sleeping players
-    if (player?.sessionId) {
-      this.sleepingPlayers.delete(player.sessionId);
-    }
+  // 5) Broadcast da lista de jogadores atualizada (com o campo sleeping)
+  try {
+    this.broadcastPlayersListToMap?.(player?.mapId);
+  } catch {}
 
-    // 1) Envia mensagem "has left" e efeito "poofed" para outros jogadores
+  // 6) Agenda a remoção final do jogador após o período de sleep configurado
+  const timeoutId = setTimeout(() => {
+    this.finalizeDisconnect(player, user, ws);
+  }, this.env.SLEEP_TIMEOUT_MS);
+
+  // 7) Armazena o jogador dormindo com o timer
+  this.sleepingPlayers.set(player.sessionId, {
+    player,
+    user,
+    timeoutId
+  });
+
+  // 8) Log
+  const sleepSeconds = Math.round(this.env.SLEEP_TIMEOUT_MS / 1000);
+  this.logger?.info(
+    { sessionId: player?.sessionId, name: player?.name, userId: user?._id, ip: ws?._ip, sleepTimeoutSec: sleepSeconds },
+    `Jogador colocado em modo sleep (${sleepSeconds}s até desconexão final)`
+  );
+}
+
+/**
+ * Finaliza a desconexão de um jogador após o período de sleep
+ * 
+ * Chamado após 1 minuto do handleDisconnect para remover o jogador permanentemente.
+ * 
+ * @param {Object} player - Jogador a ser removido
+ * @param {Object} user - Usuário associado
+ * @param {WebSocket} ws - Conexão WebSocket original (já fechada)
+ */
+finalizeDisconnect(player, user, ws) {
+  // Remove do mapa de sleeping players
+  if (player?.sessionId) {
+    this.sleepingPlayers.delete(player.sessionId);
+  }
+
+  // 1) Envia mensagem "has left" e efeito "poofed" para outros jogadores
+  try {
+    const name = (player?.name && String(player.name)) || `guest-${player?.sessionId ?? ''}`;
+    const leftText = `<span style='color:#99ff99'>${name} has left.</span>`;
+
+    // Template do efeito "poofed" (partículas que desaparecem)
+   // ...existing code...
+const poofedTemplate = {
+  type: 'fx_tpl',
+  tpl: 'poofed',
+  code: `{sound: 'pop',x: ${player.x},y: ${player.y},dir: 16777215,template: 'poofed',base_template: 'poofed',start: function()\r\n{\r\n    this.life = 90;\r\n    //this.plr = getMob(this.dir[0]);\r\n\r\n    for(var i =0;i<15;i++) {\r\n        var c = this.sprite(919);\r\n        //var c = this.circle(this.dir,12);\r\n        c.tint = this.dir;//[1];\r\n        c.y += 8;\r\n        //c.x -= 2;\r\n        c.dx = Math.random()*0.4-0.2;\r\n        c.dy = Math.random()*0.4-0.6;\r\n        c.scale.x = 1;\r\n        c.scale.y = 1;\r\n        if(Math.random() > 0.5)\r\n            c.dr = 0.005;\r\n        else\r\n            c.dr = -0.005;\r\n        c.alpha = 0.20;\r\n        c.life = 90;\r\n    }\r\n},run: function()\r\n{\r\n},move: function(p)\r\n{\r\n    //if(!this.plr && this.dir[0] !== -1) {this.plr = getMob(this.dir[0]); this.life++; p.life++; return;}\r\n    //if(Date.now()-this.timer<12){\r\n        p.x+=p.dx;p.y+=p.dy;\r\n        //p.life++;this.life++;return;}\r\n    //this.timer=Date.now();//stick to 60fps (16.667)\r\n    p.alpha -= Math.random()*0.010;//0.01;\r\n    p.scale.x += 0.02;\r\n\tp.scale.y += 0.02;\r\n    p.rotation += p.dr;\r\n}}`
+};
+// ...existing code...
+
+    // Efeito "poofed" com parâmetros
+    const poofedEffect = {
+      type: 'fx',
+      tpl: 'poofed',
+      x: player.x,
+      y: player.y,
+      s: 'pop',
+      d: 16777215
+    };
+
+    // Monta pacote com mensagem, template de efeito, efeito e lista de jogadores
+    const messagePacket = { type: 'message', text: leftText };
+    const fxTplPacket = JSON.stringify(poofedTemplate);
+    const fxPacket = JSON.stringify(poofedEffect);
+
+    // Obtém lista atualizada de jogadores (sem o jogador que saiu)
+    const playersInMap = this.getPlayersInMap(player.mapId).filter(p => p !== player);
+    const plData = playersInMap.map((p) => {
+      const snap = this.playerService.makePlayerSnapshotPacket(p);
+      return JSON.stringify(snap);
+    });
+    const plPacket = JSON.stringify({ type: 'pl', data: plData });
+
+    // Cria pacote "pkg" contendo todos os sub-pacotes
+    const pkgData = [
+      JSON.stringify(messagePacket),
+      fxTplPacket,
+      fxPacket,
+      plPacket
+    ];
+
+    const pkg = {
+      type: 'pkg',
+      data: JSON.stringify(pkgData)
+    };
+
+    // Envia para outros jogadores no mapa
+    this.sendToOthersInMap(player, pkg);
+  } catch (err) {
+    this.logger?.warn({ err: err?.message, stack: err?.stack, sessionId: player?.sessionId }, 'Falha ao enviar mensagem e efeito de departure');
+  }
+
+  // 2) Persistência assíncrona do estado completo
+  (async () => {
     try {
-      const name = (player?.name && String(player.name)) || `guest-${player?.sessionId ?? ''}`;
-      const leftText = `<span style='color:#99ff99'>${name} has left.</span>`;
-
-      // Template do efeito "poofed" (partículas que desaparecem)
-      // ...existing code...
-      const poofedTemplate = {
-        type: 'fx_tpl',
-        tpl: 'poofed',
-        code: `{sound: 'pop',x: ${player.x},y: ${player.y},dir: 16777215,template: 'poofed',base_template: 'poofed',start: function()\r\n{\r\n    this.life = 90;\r\n    //this.plr = getMob(this.dir[0]);\r\n\r\n    for(var i =0;i<15;i++) {\r\n        var c = this.sprite(919);\r\n        //var c = this.circle(this.dir,12);\r\n        c.tint = this.dir;//[1];\r\n        c.y += 8;\r\n        //c.x -= 2;\r\n        c.dx = Math.random()*0.4-0.2;\r\n        c.dy = Math.random()*0.4-0.6;\r\n        c.scale.x = 1;\r\n        c.scale.y = 1;\r\n        if(Math.random() > 0.5)\r\n            c.dr = 0.005;\r\n        else\r\n            c.dr = -0.005;\r\n        c.alpha = 0.20;\r\n        c.life = 90;\r\n    }\r\n},run: function()\r\n{\r\n},move: function(p)\r\n{\r\n    //if(!this.plr && this.dir[0] !== -1) {this.plr = getMob(this.dir[0]); this.life++; p.life++; return;}\r\n    //if(Date.now()-this.timer<12){\r\n        p.x+=p.dx;p.y+=p.dy;\r\n        //p.life++;this.life++;return;}\r\n    //this.timer=Date.now();//stick to 60fps (16.667)\r\n    p.alpha -= Math.random()*0.010;//0.01;\r\n    p.scale.x += 0.02;\r\n\tp.scale.y += 0.02;\r\n    p.rotation += p.dr;\r\n}}`
-      };
-      // ...existing code...
-
-      // Efeito "poofed" com parâmetros
-      const poofedEffect = {
-        type: 'fx',
-        tpl: 'poofed',
-        x: player.x,
-        y: player.y,
-        s: 'pop',
-        d: 16777215
-      };
-
-      // Monta pacote com mensagem, template de efeito, efeito e lista de jogadores
-      const messagePacket = { type: 'message', text: leftText };
-      const fxTplPacket = JSON.stringify(poofedTemplate);
-      const fxPacket = JSON.stringify(poofedEffect);
-
-      // Obtém lista atualizada de jogadores (sem o jogador que saiu)
-      const playersInMap = this.getPlayersInMap(player.mapId).filter(p => p !== player);
-      const plData = playersInMap.map((p) => {
-        const snap = this.playerService.makePlayerSnapshotPacket(p);
-        return JSON.stringify(snap);
-      });
-      const plPacket = JSON.stringify({ type: 'pl', data: plData });
-
-      // Cria pacote "pkg" contendo todos os sub-pacotes
-      const pkgData = [
-        JSON.stringify(messagePacket),
-        fxTplPacket,
-        fxPacket,
-        plPacket
-      ];
-
-      const pkg = {
-        type: 'pkg',
-        data: JSON.stringify(pkgData)
-      };
-
-      // Envia para outros jogadores no mapa
-      this.sendToOthersInMap(player, pkg);
+      await this.playerService.persistFullState(player);
     } catch (err) {
-      this.logger?.warn({ err: err?.message, stack: err?.stack, sessionId: player?.sessionId }, 'Falha ao enviar mensagem e efeito de departure');
+      this.logger?.warn({ err: err?.message, stack: err?.stack, sessionId: player?.sessionId }, 'Falha ao salvar estado no disconnect final');
     }
+  })();
 
-    // 2) Persistência assíncrona do estado completo
-    (async () => {
-      try {
-        await this.playerService.persistFullState(player);
-      } catch (err) {
-        this.logger?.warn({ err: err?.message, stack: err?.stack, sessionId: player?.sessionId }, 'Falha ao salvar estado no disconnect final');
-      }
-    })();
-
-    // 3) Remove das estruturas de dados
-    try {
-      // Remove do índice de players
-      if (player?.sessionId && this.players.has(player.sessionId)) {
-        this.players.delete(player.sessionId);
-      } else {
-        for (const [sid, p] of this.players) {
-          if (p === player) {
-            this.players.delete(sid);
-            break;
-          }
+  // 3) Remove das estruturas de dados
+  try {
+    // Remove do índice de players
+    if (player?.sessionId && this.players.has(player.sessionId)) {
+      this.players.delete(player.sessionId);
+    } else {
+      for (const [sid, p] of this.players) {
+        if (p === player) {
+          this.players.delete(sid);
+          break;
         }
       }
-
-      // Remove dos índices por mapa (se houver)
-      this.mapService?.removePlayerFromMap?.(player?.mapId, player);
-    } catch (err) {
-      this.logger?.warn({ err: err?.message, stack: err?.stack, sessionId: player?.sessionId }, 'Falha ao limpar estruturas no disconnect final');
     }
 
-    // 4) Log
-    this.logger?.info(
-      { sessionId: player?.sessionId, name: player?.name, userId: user?._id, ip: ws?._ip },
-      'Jogador removido permanentemente após período de sleep'
-    );
+    // Remove dos índices por mapa (se houver)
+    this.mapService?.removePlayerFromMap?.(player?.mapId, player);
+  } catch (err) {
+    this.logger?.warn({ err: err?.message, stack: err?.stack, sessionId: player?.sessionId }, 'Falha ao limpar estruturas no disconnect final');
   }
+
+  // 4) Log
+  this.logger?.info(
+    { sessionId: player?.sessionId, name: player?.name, userId: user?._id, ip: ws?._ip },
+    'Jogador removido permanentemente após período de sleep'
+  );
+}
 
   /**
    * Envia um pacote diretamente para uma conexão WebSocket
