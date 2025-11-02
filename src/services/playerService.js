@@ -129,13 +129,13 @@ export class PlayerService {
    * @param {Object} player - Jogador
    * @returns {Object} { ox, oy } - Origem do viewport encaixada em chunks
    * 
-   * Exemplo com raio 18x13 (viewport 37x27):
+   * Exemplo com raio 18x13 (viewport 36x26):
    * - Chunk size: 18x13 (igual ao raio do viewport)
-   * - Viewport total: 37x27 tiles (2*raio + 1)
+   * - Viewport total: 36x26 tiles (2*raio)
    * - Se player está em (50, 50):
    *   - chunkX = floor(50 / 18) = 2
    *   - baseX = 2 * 18 = 36
-   *   - ox = 36 - 18 = 18
+   *   - ox = 36
    * - Player precisa mover 18 tiles para mudar de chunk
    */
   getViewportOrigin(player) {
@@ -151,19 +151,17 @@ export class PlayerService {
     const baseX = chunkX * chunkWidth;
     const baseY = chunkY * chunkHeight;
 
-    // Origem do viewport = posição base do chunk - raio do viewport
-    let ox = baseX - chunkWidth;
-    let oy = baseY - chunkHeight;
-
-    // Corrige para nunca ser negativo
-    ox = Math.max(0, ox);
-    oy = Math.max(0, oy);
+    // Origem do viewport = posição base do chunk
+    // Isso garante que cada chunk tenha uma origem única
+    let ox = baseX;
+    let oy = baseY;
 
     // Corrige para não ultrapassar borda do mapa
     const map = this.world.mapService.getMap(player.mapId);
     if (map) {
-      const maxOX = Math.max(0, map.width - (2 * chunkWidth + 1));
-      const maxOY = Math.max(0, map.height - (2 * chunkHeight + 1));
+      // Calcula a origem máxima (último chunk do mapa)
+      const maxOX = Math.floor((map.width - 1) / chunkWidth) * chunkWidth;
+      const maxOY = Math.floor((map.height - 1) / chunkHeight) * chunkHeight;
       ox = Math.min(ox, maxOX);
       oy = Math.min(oy, maxOY);
     }
