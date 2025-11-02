@@ -1,0 +1,10 @@
+{
+  "tpl": "torch",
+  "name": "Tocha",
+  "desc": "Ilumina a área",
+  "stack": false,
+  "pickup": true,
+  "block": false,
+  "spr": 456,
+  "build": "456f,t|ffaa00|,q|0.9|"
+}

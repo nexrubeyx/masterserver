@@ -1,0 +1,10 @@
+{
+  "tpl": "door_closed",
+  "name": "Porta Fechada",
+  "desc": "Uma porta trancada",
+  "stack": false,
+  "pickup": false,
+  "block": true,
+  "spr": 123,
+  "build": "123f"
+}
