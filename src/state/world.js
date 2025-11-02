@@ -302,6 +302,8 @@ broadcastPlayersListToMap(mapId) {
     // === ESTADO DE VIEWPORT / REDE ===
     player._lastViewOX = undefined;      // Última origem X do viewport enviado
     player._lastViewOY = undefined;      // Última origem Y do viewport enviado
+    player._lastViewPlayerX = undefined; // Última posição X do jogador quando viewport foi enviado
+    player._lastViewPlayerY = undefined; // Última posição Y do jogador quando viewport foi enviado
     player._viewDirty = false;           // Se precisa enviar novo viewport
     player._lastMapAt = 0;               // Timestamp do último envio de mapa
     player._snapshotDirty = false;       // Se precisa enviar snapshot de posição
