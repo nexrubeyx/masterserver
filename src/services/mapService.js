@@ -18,6 +18,18 @@
  *   "height": 100,
  *   "tiles": [[tile1, tile2, ...], [row2...], ...],
  *   "fill": 0,  // Alternativa a tiles: preenche tudo com tile 0
+ *   "templates": [  // Templates de objetos específicos deste mapa
+ *     {
+ *       "tpl": "tree_oak",
+ *       "name": "Árvore",
+ *       "desc": "Uma árvore",
+ *       "stack": 0,
+ *       "pickup": 0,
+ *       "block": 1,
+ *       "spr": 720,
+ *       "build": "-305, o|-20| -289f"
+ *     }
+ *   ],
  *   "neighbors": {
  *     "north": "forest",
  *     "south": "cave",
@@ -32,6 +44,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { findAllMaps, upsertMap } from '../models/Map.js';
+import { registerTemplates } from './templateService.js';
 
 /**
  * Obtém diretório raiz do projeto (src/)
@@ -199,6 +212,15 @@ export class MapService {
       // Armazena mapa no Map interno
       this.maps.set(finalMapData.id, finalMapData);
       
+      // Registra templates do mapa se existirem
+      if (Array.isArray(finalMapData.templates) && finalMapData.templates.length > 0) {
+        registerTemplates(finalMapData.templates);
+        this.logger.debug(
+          { id: finalMapData.id, templateCount: finalMapData.templates.length }, 
+          'Templates do mapa registrados'
+        );
+      }
+      
       // Loga sucesso do carregamento individual
       this.logger.debug({ id: finalMapData.id, w: finalMapData.width, h: finalMapData.height }, 'Mapa carregado');
     }
@@ -208,6 +230,16 @@ export class MapService {
     for (const dbMap of dbMaps) {
       if (!this.maps.has(dbMap.id)) {
         this.maps.set(dbMap.id, dbMap);
+        
+        // Registra templates do mapa se existirem
+        if (Array.isArray(dbMap.templates) && dbMap.templates.length > 0) {
+          registerTemplates(dbMap.templates);
+          this.logger.debug(
+            { id: dbMap.id, templateCount: dbMap.templates.length }, 
+            'Templates do mapa registrados (MongoDB)'
+          );
+        }
+        
         this.logger.debug({ id: dbMap.id }, 'Mapa carregado do MongoDB (sem JSON correspondente)');
       }
     }

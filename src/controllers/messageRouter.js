@@ -21,6 +21,7 @@
  */
 
 import { handleLoginOrCreate } from '../services/authService.js';
+import { sendAllTemplates } from '../services/templateService.js';
 
 /**
  * Cria função roteadora de mensagens
@@ -84,13 +85,17 @@ export function createMessageRouter(env, logger, world) {
           tile: {}                       // Tiles especiais (vazio por enquanto)
         });
 
-        // 2) Envia template e snapshot do próprio jogador
+        // 2) Envia todos os templates de objetos
+        // Isso garante que o cliente tenha o dicionário de objetos disponível
+        sendAllTemplates(ws);
+
+        // 3) Envia template e snapshot do próprio jogador
         // Template define aparência visual
         world.sendTo(player, world.playerService.makePlayerTemplatePacket(player));
         // Snapshot define posição e estado atual
         world.sendTo(player, world.playerService.makePlayerSnapshotPacket(player));
 
-        // 3) Envia informações do mapa (mt = map transition)
+        // 4) Envia informações do mapa (mt = map transition)
         world.sendTo(player, {
           type: 'mt',
           s: 1,                           // Status (1 = sucesso)
@@ -103,20 +108,20 @@ export function createMessageRouter(env, logger, world) {
           f: env.DEFAULT_CAVE_FLOOR       // Tile de chão padrão
         });
 
-        // 4) Força envio do primeiro viewport (tiles visíveis)
+        // 5) Força envio do primeiro viewport (tiles visíveis)
         player._lastViewOX = undefined;
         player._lastViewOY = undefined;
         world.playerService.markViewportDirty(player);
         world.playerService.flushViewportIfDirty(player, Date.now());
 
  
-        // 7) Envia inventário inicial (vazio)
+        // 6) Envia inventário inicial (vazio)
         world.sendTo(player, { type: 'inv', data: [] });
         
-        // 8) Envia comando de música
+        // 7) Envia comando de música
         world.sendTo(player, { type: 'music', m: env.DEFAULT_SONG, s: 0 });
 
-        // 9) >>> CRÍTICO: Sincroniza presença com outros jogadores
+        // 8) >>> CRÍTICO: Sincroniza presença com outros jogadores
         // Notifica outros jogadores sobre o novo jogador E
         // Notifica o novo jogador sobre os outros já presentes
         world.syncPresence(player);
