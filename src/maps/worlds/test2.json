@@ -1,9 +1,51 @@
 {
   "id": "caverealm",
-  "version": 16,
+  "version": 18,
   "title": "Custom Map",
   "width": 15,
   "height": 15,
+  "templates": [
+    {
+      "tpl": "tree_oak",
+      "name": "Árvore de Carvalho",
+      "desc": "Uma árvore grande.",
+      "stack": 0,
+      "pickup": 0,
+      "block": 1,
+      "spr": 720,
+      "build": "-305, o|-20| -289f"
+    },
+    {
+      "tpl": "barrel_small",
+      "name": "Barril Pequeno",
+      "desc": "Um pequeno barril.",
+      "stack": 0,
+      "pickup": 0,
+      "block": 0,
+      "spr": 812,
+      "build": "812"
+    },
+    {
+      "tpl": "torch_wall",
+      "name": "Tocha de Parede",
+      "desc": "Uma tocha iluminando a parede.",
+      "stack": 0,
+      "pickup": 1,
+      "block": 0,
+      "spr": 650,
+      "build": "650f,a"
+    },
+    {
+      "tpl": "chest_small",
+      "name": "Baú Pequeno",
+      "desc": "Um baú para guardar itens.",
+      "stack": 0,
+      "pickup": 0,
+      "block": 1,
+      "spr": 800,
+      "build": "800"
+    }
+  ],
   "tiles": [
     [
       325,
