@@ -142,7 +142,7 @@ async function testGhostPlayerFix() {
     console.log('✓ Jogador 1 foi removido da lista de jogadores no mapa\n');
 
     // Verifica que jogador 2 NÃO recebeu evento de remoção
-    // O cliente agora depende exclusivamente do sweep da lista "pl" para remover jogadores
+    // O cliente agora depende exclusivamente do sweep da lista de jogadores (pl) para remover jogadores
     console.log('Verificando que jogador 2 NÃO recebeu evento de remoção...');
     const removeMessages = ws2.sentMessages.filter(msg => msg.type === 'remove');
     
