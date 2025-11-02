@@ -12,7 +12,6 @@ Implementa autenticação (login/guest), mapa em JSON com vizinhos (transição 
 - **Chat**: Sistema de mensagens entre jogadores
 - **Água Profunda**: Sistema completo de água com animação e colisão (tiles 36, 248, 325)
 - **Edge Blending**: Perfeita paridade com renderização do cliente
-- **Chunk Loading**: Carregamento inteligente de chunks maiores quando o jogador se aproxima das bordas do mapa
 - **Inventário**: Estrutura básica de inventário (extensível)
 
 ## Requisitos
@@ -39,14 +38,10 @@ node test-deep-water.js
 
 # Testar funcionalidade de objectPlacements
 node test-object-placements.js
-
-# Testar carregamento de chunks nas bordas
-node test-chunk-loading.js
 ```
 
 ## Documentação Adicional
 - `TEMPLATES_DOCUMENTATION.md` - Sistema completo de templates de objetos
 - `DEEP_WATER_IMPLEMENTATION.md` - Detalhes técnicos da implementação de água
-- `CHUNK_LOADING_IMPLEMENTATION.md` - Carregamento inteligente de chunks nas bordas
 - `IMPLEMENTATION_SUMMARY.md` - Resumo completo das mudanças
 - `MANUAL_TESTING_GUIDE.md` - Guia para verificação manual com cliente
