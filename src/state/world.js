@@ -210,12 +210,13 @@ broadcastPlayersListToMap(mapId) {
     // poderia-se manter um Map separado userId->session para lookup O(1).
     // Porém, este código só executa no login (não no hot path) e a maioria
     // dos servidores terá <1000 sessões simultâneas, tornando o impacto mínimo.
-    // === BLOQUEIO DE LOGIN DUPLICADO ===
-    // Se já existe uma sessão ativa para este userId, rejeita o novo login
     for (const [existingWs, existingSession] of this.sessions) {
       if (String(existingSession.user?._id) === String(user?._id)) {
-        this.sendRaw(ws, { type: 'logmsg', text: 'Already online.' });
-        return;
+        // Notifica a sessão antiga e força desconexão
+        this.sendRaw(existingWs, { type: 'logmsg', text: 'You have logged in from another location.' });
+        existingWs.close();
+        this.handleDisconnect(existingWs);
+        break; // Sai do loop após tratar a sessão antiga
       }
     }
 
