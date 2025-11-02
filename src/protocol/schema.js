@@ -18,6 +18,10 @@
  * - h: comando de movimento (hold)
  * - m: comando de direção (move)
  * - P: ping/keepalive
+ * - pickup: coletar objeto
+ * - bld: construir template no tile atual
+ * - setobj: setar objetos do tile
+ * - clrobj: limpar objetos do tile
  */
 
 import Ajv from 'ajv';
@@ -63,13 +67,6 @@ export const schemaByType = {
   
   /**
    * Mensagem 'login' - Autenticação com credenciais
-   * Usada para login com usuário e senha existente, ou criação de conta
-   * 
-   * Campos:
-   * - type: 'login' (constante)
-   * - user: username em Base64
-   * - pass: senha em Base64
-   * - email: email em Base64 (opcional, usado ao criar conta)
    */
   login: {
     type: 'object',
@@ -85,85 +82,59 @@ export const schemaByType = {
   
   /**
    * Mensagem 'guest' - Entrada como visitante
-   * Cria conta temporária sem senha (guest-XXXXX)
-   * 
-   * Campos:
-   * - type: 'guest' (constante)
    */
   guest: {
     type: 'object',
     required: ['type'],
     properties: { type: { const: 'guest' } },
-    additionalProperties: false  // Não permite campos extras
+    additionalProperties: false
   },
   
   /**
    * Mensagem 'chat' - Mensagem de chat
-   * Envia mensagem para outros jogadores
-   * 
-   * Campos:
-   * - type: 'chat' (constante)
-   * - data: texto da mensagem (max 2048 chars)
    */
   chat: {
     type: 'object',
     required: ['type', 'data'],
     properties: {
       type: { const: 'chat' },
-      data: { type: 'string', maxLength: 2048 }       // Mensagem (max 2KB)
+      data: { type: 'string', maxLength: 2048 }
     },
     additionalProperties: false
   },
   
   /**
    * Mensagem 'h' - Comando de movimento (Hold)
-   * Inicia ou para movimento do jogador
-   * 
-   * Campos:
-   * - type: 'h' (constante)
-   * - x, y: posição atual (para validação)
-   * - d: direção (0=cima, 1=direita, 2=baixo, 3=esquerda, undefined=parar)
    */
   h: {
     type: 'object',
     required: ['type', 'x', 'y'],
     properties: {
       type: { const: 'h' },
-      x: { type: 'integer', minimum: -99999, maximum: 99999 },  // Posição X
-      y: { type: 'integer', minimum: -99999, maximum: 99999 },  // Posição Y
-      d: { type: 'integer', minimum: 0, maximum: 3 }             // Direção (0-3)
+      x: { type: 'integer', minimum: -99999, maximum: 99999 },
+      y: { type: 'integer', minimum: -99999, maximum: 99999 },
+      d: { type: 'integer', minimum: 0, maximum: 3 }
     },
     additionalProperties: false
   },
   
   /**
    * Mensagem 'm' - Comando de direção (Move)
-   * Muda direção do jogador sem mover
-   * 
-   * Campos:
-   * - type: 'm' (constante)
-   * - x, y: posição atual
-   * - d: direção para virar (0=cima, 1=direita, 2=baixo, 3=esquerda)
    */
   m: {
     type: 'object',
     required: ['type', 'x', 'y', 'd'],
     properties: {
       type: { const: 'm' },
-      x: { type: 'integer' },                          // Posição X
-      y: { type: 'integer' },                          // Posição Y
-      d: { type: 'integer', minimum: 0, maximum: 3 }   // Direção (0-3)
+      x: { type: 'integer' },
+      y: { type: 'integer' },
+      d: { type: 'integer', minimum: 0, maximum: 3 }
     },
     additionalProperties: false
   },
   
   /**
    * Mensagem 'P' - Ping/Keepalive
-   * Cliente envia periodicamente para manter conexão ativa
-   * Servidor responde com 'P' também
-   * 
-   * Campos:
-   * - type: 'P' (constante)
    */
   P: {
     type: 'object',
@@ -174,21 +145,57 @@ export const schemaByType = {
   
   /**
    * Mensagem 'pickup' - Coletar objeto do mundo
-   * Cliente envia quando jogador interage com objeto
-   * 
-   * Campos:
-   * - type: 'pickup' (constante)
-   * - x, y: posição do objeto no mapa
-   * - tpl: template do objeto (ex: 'stone', 'wood', 'bush')
    */
   pickup: {
     type: 'object',
     required: ['type', 'x', 'y', 'tpl'],
     properties: {
       type: { const: 'pickup' },
-      x: { type: 'integer', minimum: -99999, maximum: 99999 },  // Posição X
-      y: { type: 'integer', minimum: -99999, maximum: 99999 },  // Posição Y
-      tpl: { type: 'string', maxLength: 64 }                     // Template do objeto
+      x: { type: 'integer', minimum: -99999, maximum: 99999 },
+      y: { type: 'integer', minimum: -99999, maximum: 99999 },
+      tpl: { type: 'string', maxLength: 64 }
+    },
+    additionalProperties: false
+  },
+
+  /**
+   * Mensagem 'bld' - Build de objeto (template) no tile do player
+   */
+  bld: {
+    type: 'object',
+    required: ['type', 'tpl'],
+    properties: {
+      type: { const: 'bld' },
+      tpl: { type: 'string', minLength: 1, maxLength: 128 }
+    },
+    additionalProperties: true
+  },
+
+  /**
+   * Mensagem 'setobj' - Seta a lista de objetos de um tile
+   */
+  setobj: {
+    type: 'object',
+    required: ['type', 'x', 'y', 'list'],
+    properties: {
+      type: { const: 'setobj' },
+      x: { type: 'integer', minimum: -99999, maximum: 99999 },
+      y: { type: 'integer', minimum: -99999, maximum: 99999 },
+      list: { type: 'array', items: { type: 'string', minLength: 1, maxLength: 128 }, maxItems: 32 }
+    },
+    additionalProperties: false
+  },
+
+  /**
+   * Mensagem 'clrobj' - Limpa objetos de um tile
+   */
+  clrobj: {
+    type: 'object',
+    required: ['type', 'x', 'y'],
+    properties: {
+      type: { const: 'clrobj' },
+      x: { type: 'integer', minimum: -99999, maximum: 99999 },
+      y: { type: 'integer', minimum: -99999, maximum: 99999 }
     },
     additionalProperties: false
   }
@@ -208,21 +215,6 @@ for (const [key, schema] of Object.entries(schemaByType)) {
  * 
  * @param {Object} obj - Objeto JSON parseado da mensagem
  * @returns {Object} { ok: boolean, errors?: Array }
- * 
- * Processo de validação:
- * 1. Verifica se é um objeto válido
- * 2. Verifica se tem campo 'type'
- * 3. Verifica se o tipo é conhecido
- * 4. Valida contra o schema correspondente
- * 5. Retorna { ok: true } se válido, ou { ok: false, errors: [...] } se inválido
- * 
- * Exemplo:
- * const result = validatePacket({ type: 'chat', data: 'olá' });
- * if (result.ok) {
- *   // Mensagem válida, processar
- * } else {
- *   // Mensagem inválida, ignorar ou logar erro
- * }
  */
 export function validatePacket(obj) {
   // Verifica se é um objeto

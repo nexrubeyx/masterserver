@@ -1,6 +1,6 @@
 {
   "id": "caverealm",
-  "version": 14,
+  "version": 16,
   "title": "Custom Map",
   "width": 15,
   "height": 15,
@@ -260,9 +260,5 @@
       325,
       325
     ]
-  ],
-  "objectSpawns": [],
-   "objectPlacements": [
-    { "x": 5, "y": 5, "tpl": "bush", "count": 1 }
   ]
 }

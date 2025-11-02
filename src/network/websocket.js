@@ -19,6 +19,10 @@ import { WebSocketServer } from 'ws';
 import { validatePacket } from '../protocol/schema.js';
 import { createMessageRouter } from '../controllers/messageRouter.js';
 
+// === IMPORTAÇÕES PARA OBJETOS SOBRE TILES ===
+import { sendAllTemplates, findTemplate } from '../services/templateService.js';
+import { ObjectLayer } from '../state/objectLayer.js';
+
 /**
  * Cria e configura o servidor WebSocket
  * 
@@ -55,6 +59,24 @@ export function createWSServer(env, logger, world, attachToServer /* optional ht
   // Cria o roteador que processa mensagens dos clientes
   const router = createMessageRouter(env, logger, world);
   
+  // === CAMADA DE OBJETOS SOBRE TILES (memória) ===
+  const objectLayer = new ObjectLayer();
+
+  // Helper: obter player do ws/world
+  function getPlayerFromWs(ws) {
+    return ws.player || ws._player || (typeof world?.getPlayer === 'function' ? world.getPlayer(ws) : null);
+  }
+
+  // Helper: broadcast "o" para todos (ajuste escopo conforme mundo/visão)
+  function broadcastTileObjects(x, y, dString) {
+    const payload = JSON.stringify({ type: "o", x, y, d: dString });
+    wss.clients.forEach((client) => {
+      if (client && client.readyState === 1 /* OPEN */) {
+        try { client.send(payload); } catch {}
+      }
+    });
+  }
+  
   // Configurações de rate limiting (anti-spam)
   const rateWindow = env.RATE_LIMIT_WINDOW_MS;  // Janela de tempo (10 segundos)
   const rateMax = env.RATE_LIMIT_MAX;            // Máximo de mensagens na janela (200)
@@ -77,6 +99,12 @@ export function createWSServer(env, logger, world, attachToServer /* optional ht
     // Flag para heartbeat (ping/pong)
     ws._alive = true;
 
+    // === Envia todos os templates ao cliente no momento da conexão ===
+    // Isso garante que o client tenha o dicionário (object_dict) antes de receber 'o'.
+    try { sendAllTemplates(ws); } catch (e) {
+      logger.warn({ err: e?.message }, 'Falha ao enviar templates (obj_tpl)');
+    }
+
     /**
      * Handler executado quando uma mensagem é recebida do cliente
      * 
@@ -84,7 +112,8 @@ export function createWSServer(env, logger, world, attachToServer /* optional ht
      * 1. Verifica rate limiting
      * 2. Valida JSON
      * 3. Valida estrutura da mensagem (schema)
-     * 4. Roteia para o handler apropriado
+     * 4. Handlers de objetos (bld/setobj/clrobj)
+     * 5. Roteia para o handler apropriado
      */
     ws.on('message', (buf) => {
       // === RATE LIMITING ===
@@ -98,8 +127,6 @@ export function createWSServer(env, logger, world, attachToServer /* optional ht
       
       // Se excedeu o limite, fecha a conexão
       if (ws._rate.length > rateMax) {
-        // Em vez de fechar, apenas ignore se quiser ser mais tolerante:
-        // return;
         ws.close(1008, 'Rate limit');
         return;
       }
@@ -119,13 +146,40 @@ export function createWSServer(env, logger, world, attachToServer /* optional ht
       }
 
       // === VALIDAÇÃO DE SCHEMA ===
-      // Valida estrutura da mensagem usando esquemas Ajv
+      // Observação: certifique-se de que o schema aceite os tipos 'bld', 'setobj', 'clrobj'.
       const v = validatePacket(data);
       if (!v.ok) return; // Mensagem inválida, ignora
 
+      // === HANDLERS DE OBJETOS SOBRE TILES ===
+      // {type:"bld", tpl} -> constrói no tile do player e emite {type:"o"}
+      if (data.type === 'bld' && typeof data.tpl === 'string') {
+        const tpl = findTemplate(data.tpl);
+        if (!tpl) return;
+        const player = getPlayerFromWs(ws);
+        if (!player || typeof player.x !== 'number' || typeof player.y !== 'number') return;
+
+        const list = objectLayer.add(player.x, player.y, tpl.tpl);
+        broadcastTileObjects(player.x, player.y, list.join('|'));
+        return;
+      }
+
+      // {type:"setobj", x, y, list:[tpl,...]} -> define lista exata e emite {type:"o"}
+      if (data.type === 'setobj' && Number.isInteger(data.x) && Number.isInteger(data.y) && Array.isArray(data.list)) {
+        // (opcional) validar permissões de admin aqui
+        const valids = data.list.filter(t => !!findTemplate(t));
+        objectLayer.set(data.x, data.y, valids);
+        broadcastTileObjects(data.x, data.y, valids.join('|'));
+        return;
+      }
+
+      // {type:"clrobj", x, y} -> limpa tile e emite {type:"o"} com d:""
+      if (data.type === 'clrobj' && Number.isInteger(data.x) && Number.isInteger(data.y)) {
+        objectLayer.clear(data.x, data.y);
+        broadcastTileObjects(data.x, data.y, "");
+        return;
+      }
+
       // === ROTEAMENTO ===
-      // Passa mensagem para o router que decide como processar
-            // === ROTEAMENTO ===
       router(ws, data).catch((err) => {
         logger.warn(
           {
