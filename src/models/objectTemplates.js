@@ -11,10 +11,8 @@ export default [
     desc: "Uma árvore grande.",
     stack: 0,
     pickup: 0,
-    block: 1,     // bloqueia passagem
-    spr: 720,     // ícone (item16) — ajuste conforme seu atlas
-    // Exemplo: tronco (tile) + copa (tile) acima do player, leve offset para cima.
-    // Substitua -305 e -289 pelos seus IDs corretos de tile16.
+    block: 1,
+    spr: 720,
     build: "-305, o|-20| -289f"
   },
   {
@@ -24,7 +22,7 @@ export default [
     stack: 0,
     pickup: 0,
     block: 0,
-    spr: 812,     // ícone (item16)
-    build: "812"  // único sprite (item16)
+    spr: 812,
+    build: "812"
   }
 ];

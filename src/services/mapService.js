@@ -363,45 +363,53 @@ export class MapService {
    * Tiles fora do mapa são substituídos por DEFAULT_CAVE_WALL
    * para evitar "preto" nas bordas.
    */
+    /**
+   * Constrói payload de viewport com tiles visíveis
+   * 
+   * Gera string de tiles no formato "t1:t2:t3:..." para enviar ao cliente.
+   */
   buildViewportPayload(map, x, y, rx, ry) {
     const out = [];
-    
-    // Tile para usar quando fora dos limites do mapa
-    // Usa parede padrão em vez de 0 (preto)
+
+    // Tile de fallback quando fora do mapa
     const oobTile = Number.isFinite(this.env.DEFAULT_CAVE_WALL)
       ? String(this.env.DEFAULT_CAVE_WALL)
       : '0';
 
-    // Itera sobre a grade do viewport
-    // Ordem: coluna por coluna (cx), de cima para baixo (cy)
-    for (let cx = -rx; cx <= rx; cx++) {
-      for (let cy = -ry; cy <= ry; cy++) {
-        // Calcula posição absoluta no mapa
+    // IMPORTANTE: usar limites EXCLUSIVOS para casar com o cliente (2*rx x 2*ry)
+    // Ordem coluna→linha (cx externo, cy interno), igual ao cliente.
+    for (let cx = -rx; cx < rx; cx++) {
+      for (let cy = -ry; cy < ry; cy++) {
         const tx = x + cx;
         const ty = y + cy;
 
-        // Se fora dos limites do mapa, usa tile de parede
         if (tx < 0 || ty < 0 || tx >= map.width || ty >= map.height) {
           out.push(oobTile);
           continue;
         }
 
-        // Obtém linha do mapa
         const row = Array.isArray(map.tiles[ty]) ? map.tiles[ty] : null;
         if (!row) {
           out.push(oobTile);
           continue;
         }
 
-        // Obtém tile específico
         const cell = Number.isFinite(row[tx]) ? row[tx] : 0;
         out.push(String(cell));
       }
     }
-    
-    // Junta todos os tiles com ":" e retorna
+
+    // (Opcional) Sanidade: garantir tamanho esperado
+    // esperado = (2*rx) * (2*ry)
+    const expected = (rx << 1) * (ry << 1);
+    if (out.length !== expected) {
+      this.logger?.warn({ have: out.length, expected, rx, ry }, 'Viewport size mismatch (server)');
+    }
+
     return out.join(':');
   }
+  
+  
 
   /**
    * Limita coordenadas aos limites do mapa
@@ -489,3 +497,5 @@ checkExitAndTransition(player) {
   return null;
 }
 }
+
+// Nenhuma alteração necessária para chunk aqui.

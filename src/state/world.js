@@ -683,3 +683,5 @@ const poofedTemplate = {
     for (const [ws] of this.sessions) this.sendRaw(ws, obj);
   }
 }
+
+// Nenhuma alteração necessária para chunk aqui.

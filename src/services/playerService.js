@@ -142,22 +142,32 @@ export class PlayerService {
     // Tamanho do chunk = raio do viewport (MAP_VIEW_RADIUS)
     const chunkWidth = this.env.MAP_VIEW_RADIUS_X;
     const chunkHeight = this.env.MAP_VIEW_RADIUS_Y;
-    
+
     // Calcula em qual chunk o jogador está
-    // floor(x / chunkWidth) dá o índice do chunk
-    // Nota: player.x e player.y são sempre >= 0 devido à validação de bordas no tickPlayer
     const chunkX = Math.floor(player.x / chunkWidth);
     const chunkY = Math.floor(player.y / chunkHeight);
-    
+
     // Calcula a posição base do chunk (canto superior esquerdo do chunk)
     const baseX = chunkX * chunkWidth;
     const baseY = chunkY * chunkHeight;
-    
+
     // Origem do viewport = posição base do chunk - raio do viewport
-    // Isso mantém o jogador aproximadamente no centro do viewport
-    const ox = baseX - this.env.MAP_VIEW_RADIUS_X;
-    const oy = baseY - this.env.MAP_VIEW_RADIUS_Y;
-    
+    let ox = baseX - chunkWidth;
+    let oy = baseY - chunkHeight;
+
+    // Corrige para nunca ser negativo
+    ox = Math.max(0, ox);
+    oy = Math.max(0, oy);
+
+    // Corrige para não ultrapassar borda do mapa
+    const map = this.world.mapService.getMap(player.mapId);
+    if (map) {
+      const maxOX = Math.max(0, map.width - (2 * chunkWidth + 1));
+      const maxOY = Math.max(0, map.height - (2 * chunkHeight + 1));
+      ox = Math.min(ox, maxOX);
+      oy = Math.min(oy, maxOY);
+    }
+
     return { ox, oy };
   }
 
