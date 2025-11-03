@@ -16,7 +16,9 @@
  *   "title": "Mundo Principal",
  *   "width": 100,
  *   "height": 100,
- *   "tiles": [[tile1, tile2, ...], [row2...], ...],
+ *   "tiles": [[tile1, tile2, ...], [row2...], ...],  // Array 2D
+ *   // OU
+ *   "tiles": "0:0:0:0:209:209:209:...",  // String separada por ':'
  *   "fill": 0,  // Alternativa a tiles: preenche tudo com tile 0
  *   "templates": [  // Templates de objetos específicos deste mapa
  *     {
@@ -45,6 +47,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { findAllMaps, upsertMap } from '../models/Map.js';
 import { registerTemplates } from './templateService.js';
+import { compressLZW, shouldUseLZWCompression } from '../utils/compression.js';
 
 /**
  * Obtém diretório raiz do projeto (src/)
@@ -92,6 +95,10 @@ export class MapService {
     
     // Mapa de mapas: mapId -> { width, height, title, id, tiles:number[][], neighbors }
     this.maps = new Map();
+    
+    // Limites de performance para avisos
+    this.LARGE_MAP_TILE_THRESHOLD = 100000;  // 100k tiles
+    this.LARGE_MAP_STRING_THRESHOLD = 1000000;  // 1MB
   }
 
   /**
@@ -262,8 +269,40 @@ export class MapService {
   normalizeMapData(json) {
     // === GERAÇÃO/NORMALIZAÇÃO DE TILES ===
     
+    // Se tiles é uma string (formato "0:0:0:209:209:..."), converte para array 2D
+    if (typeof json.tiles === 'string') {
+      // Valida tamanho esperado
+      const expectedTiles = json.width * json.height;
+      const estimatedLength = json.tiles.length;
+      
+      // Aviso para mapas muito grandes (>100k tiles ou >1MB de string)
+      if (expectedTiles > this.LARGE_MAP_TILE_THRESHOLD || 
+          estimatedLength > this.LARGE_MAP_STRING_THRESHOLD) {
+        this.logger?.warn(
+          { id: json.id, tiles: expectedTiles, stringLength: estimatedLength },
+          'Mapa grande detectado com formato string - pode impactar performance de carregamento'
+        );
+      }
+      
+      // Separa string por ':' e converte cada valor para número
+      const tileValues = json.tiles.split(':').map(v => {
+        const num = Number(v);
+        return Number.isFinite(num) ? num : 0;
+      });
+      
+      // Converte array linear em array 2D (height x width)
+      json.tiles = [];
+      for (let y = 0; y < json.height; y++) {
+        const row = [];
+        for (let x = 0; x < json.width; x++) {
+          const index = y * json.width + x;
+          row.push(index < tileValues.length ? tileValues[index] : 0);
+        }
+        json.tiles.push(row);
+      }
+    }
     // Se não tem array de tiles mas tem "fill", gera tiles preenchidos
-    if (!Array.isArray(json.tiles) && typeof json.fill === 'number') {
+    else if (!Array.isArray(json.tiles) && typeof json.fill === 'number') {
       // Cria array 2D: height linhas x width colunas, todas com valor fill
       json.tiles = Array.from({ length: json.height }, () =>
         Array.from({ length: json.width }, () => json.fill)
@@ -362,13 +401,21 @@ export class MapService {
    * 
    * Tiles fora do mapa são substituídos por DEFAULT_CAVE_WALL
    * para evitar "preto" nas bordas.
-   */
-    /**
+  /**
    * Constrói payload de viewport com tiles visíveis
    * 
-   * Gera string de tiles no formato "t1:t2:t3:..." para enviar ao cliente.
+   * Gera string de tiles no formato "t1:t2:t3:..." e aplica compressão LZW
+   * compatível com jv.unzip do cliente.
+   * 
+   * @param {Object} map - Objeto do mapa
+   * @param {number} x - Posição X do jogador
+   * @param {number} y - Posição Y do jogador
+   * @param {number} rx - Raio horizontal (18 = 36 tiles de largura)
+   * @param {number} ry - Raio vertical (13 = 26 tiles de altura)
+   * @param {boolean} compress - Se true, aplica compressão LZW (default: true)
+   * @returns {string} String de tiles (comprimida ou não)
    */
-  buildViewportPayload(map, x, y, rx, ry) {
+  buildViewportPayload(map, x, y, rx, ry, compress = true) {
     const out = [];
 
     // Tile de fallback quando fora do mapa
@@ -406,7 +453,33 @@ export class MapService {
       this.logger?.warn({ have: out.length, expected, rx, ry }, 'Viewport size mismatch (server)');
     }
 
-    return out.join(':');
+    // Junta tiles com ':' 
+    const tilesString = out.join(':');
+    
+    // Se compressão desabilitada, retorna string sem comprimir
+    if (!compress) {
+      return tilesString;
+    }
+    
+    // Aplica compressão LZW compatível com jv.unzip
+    const compressed = compressLZW(tilesString);
+    
+    // Verifica se compressão vale a pena
+    if (shouldUseLZWCompression(tilesString, compressed)) {
+      this.logger?.debug(
+        { 
+          original: tilesString.length, 
+          compressed: compressed.length, 
+          ratio: (compressed.length / tilesString.length * 100).toFixed(1) + '%'
+        }, 
+        'Viewport comprimido com LZW'
+      );
+      return compressed;
+    } else {
+      // Compressão não melhorou - retorna original
+      this.logger?.debug({ size: tilesString.length }, 'Viewport sem compressão (não compensou)');
+      return tilesString;
+    }
   }
   
   
