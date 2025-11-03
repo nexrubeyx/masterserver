@@ -236,6 +236,9 @@ export class ChunkValidationService {
    * 
    * Usado para detectar chunks duplicados ou corrompidos.
    * 
+   * NOTA: MD5 é usado aqui apenas para detecção de duplicatas, NÃO para
+   * segurança criptográfica. MD5 é rápido e adequado para este propósito.
+   * 
    * @param {string} tilesData - String de tiles
    * @returns {string} Checksum MD5
    * @private

@@ -43,9 +43,7 @@ O SecurityService é responsável por validar todos os movimentos dos jogadores 
 ##### 1.6 Sincronização Cliente-Servidor
 - **O que protege**: Detecta dessincronia entre coordenadas do cliente e servidor
 - **Como funciona**: Compara posição enviada pelo cliente com posição do servidor
-- **Tolerância**: Configura
-
-vel via `SECURITY_COORD_TOLERANCE` (padrão: 2 tiles)
+- **Tolerância**: Configurável via `SECURITY_COORD_TOLERANCE` (padrão: 2 tiles)
 - **Ação**: Força resincronização enviando snapshot correto ao cliente
 
 #### Rastreamento de Violações

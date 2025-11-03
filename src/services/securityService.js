@@ -40,8 +40,8 @@ export class SecurityService {
     // Previne movimentos mais rápidos que o permitido
     this.minMovementInterval = Number(env.SECURITY_MIN_MOVE_INTERVAL || 20);
     
-    // Threshold de chunk para reenviio de viewport
-    this.chunkThreshold = Number(env.SECURITY_CHUNK_THRESHOLD || 4);
+    // Tolerância para coordenadas cliente/servidor (compensar lag)
+    this.coordTolerance = Number(env.SECURITY_COORD_TOLERANCE || 2);
   }
 
   /**
@@ -206,9 +206,8 @@ export class SecurityService {
       return { valid: false, reason: 'Player inválido' };
     }
 
-    // Tolerância para compensar lag/latência
-    // Cliente pode estar 1-2 tiles atrás/frente do servidor
-    const tolerance = Number(this.env.SECURITY_COORD_TOLERANCE || 2);
+    // Usa tolerância configurada no construtor
+    const tolerance = this.coordTolerance;
 
     const serverX = player.x;
     const serverY = player.y;
