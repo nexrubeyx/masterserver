@@ -9,6 +9,11 @@ Implementa autenticação (login/guest), mapa em JSON com vizinhos (transição 
 - **Templates de Objetos**: Sistema de templates dinâmico com suporte a templates por mapa
 - **Colocação de Objetos**: Sistema de objectPlacements para popular mapas com objetos estáticos em coordenadas específicas
 - **Movimento tile-by-tile**: Sistema de movimento fluido com validação
+- **Sistema de Segurança**: Validação de coordenadas e chunks para prevenir exploits
+  - Prevenção de teleportação (jogadores devem seguir caminhos A→B→C)
+  - Validação de limites de mapa
+  - Validação de chunks (integridade de dados)
+  - Detecção de movimentos anômalos
 - **Chat**: Sistema de mensagens entre jogadores
 - **Água Profunda**: Sistema completo de água com animação e colisão (tiles 36, 248, 325)
 - **Edge Blending**: Perfeita paridade com renderização do cliente
@@ -38,10 +43,14 @@ node test-deep-water.js
 
 # Testar funcionalidade de objectPlacements
 node test-object-placements.js
+
+# Testar sistema de segurança (validação de movimento e chunks)
+node test-security.js
 ```
 
 ## Documentação Adicional
 - `TEMPLATES_DOCUMENTATION.md` - Sistema completo de templates de objetos
 - `DEEP_WATER_IMPLEMENTATION.md` - Detalhes técnicos da implementação de água
+- `SECURITY_DOCUMENTATION.md` - Sistema de segurança e validação de movimentos/chunks
 - `IMPLEMENTATION_SUMMARY.md` - Resumo completo das mudanças
 - `MANUAL_TESTING_GUIDE.md` - Guia para verificação manual com cliente
