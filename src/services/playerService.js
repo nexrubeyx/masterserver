@@ -229,8 +229,8 @@ export class PlayerService {
     const dy = Math.abs(player.y - player._lastViewPlayerY);
     
     // Marca como dirty se o jogador se moveu além do limite de chunk
-    // Usa distância Manhattan (dx + dy) ou máximo (max(dx, dy)) dependendo da preferência
-    // Aqui usamos máximo para criar uma região quadrada de ~8x8 tiles antes de reenviar
+    // Usa condição OR (dx >= threshold OU dy >= threshold) para detectar movimento significativo
+    // Isso cria uma região de tolerância onde viewport não é reenviado
     if (dx >= CHUNK_THRESHOLD || dy >= CHUNK_THRESHOLD) {
       player._viewDirty = true;
       const { ox, oy } = this.getViewportOrigin(player);
