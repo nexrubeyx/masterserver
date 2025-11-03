@@ -130,7 +130,19 @@ export function loadEnv() {
     // === DESCONEXÃO E SLEEP ===
     // Tempo em milissegundos que um jogador fica em modo "sleep" antes de ser removido
     // após desconectar (60000ms = 1 minuto)
-    SLEEP_TIMEOUT_MS: parseInt(process.env.SLEEP_TIMEOUT_MS || '60000', 10)
+    SLEEP_TIMEOUT_MS: parseInt(process.env.SLEEP_TIMEOUT_MS || '60000', 10),
+
+    // === SEGURANÇA - VALIDAÇÃO DE MOVIMENTO ===
+    // Máximo de violações de segurança antes de marcar jogador como suspeito
+    SECURITY_MAX_VIOLATIONS: parseInt(process.env.SECURITY_MAX_VIOLATIONS || '5', 10),
+    // Tamanho do histórico de posições mantido para cada jogador
+    SECURITY_HISTORY_SIZE: parseInt(process.env.SECURITY_HISTORY_SIZE || '10', 10),
+    // Distância máxima em tiles que um jogador pode se mover de uma vez (1 = sem teleporte)
+    SECURITY_MAX_MOVE_DISTANCE: parseInt(process.env.SECURITY_MAX_MOVE_DISTANCE || '1', 10),
+    // Intervalo mínimo em ms entre movimentos válidos (anti-speedhack)
+    SECURITY_MIN_MOVE_INTERVAL: parseInt(process.env.SECURITY_MIN_MOVE_INTERVAL || '20', 10),
+    // Tolerância em tiles para coordenadas cliente vs servidor (compensar lag)
+    SECURITY_COORD_TOLERANCE: parseInt(process.env.SECURITY_COORD_TOLERANCE || '2', 10)
   };
 
   return env;

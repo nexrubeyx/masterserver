@@ -22,6 +22,8 @@
 import { MapService } from '../services/mapService.js';
 import { PlayerService } from '../services/playerService.js';
 import { ChatService } from '../services/chatService.js';
+import { SecurityService } from '../services/securityService.js';
+import { ChunkValidationService } from '../services/chunkValidationService.js';
 
 export class World {
   /**
@@ -48,6 +50,12 @@ export class World {
 
     // Serviço que gerencia chat (mensagens, comandos, etc)
     this.chatService = new ChatService(env, logger, this);
+
+    // Serviço de segurança para validação de movimentos
+    this.securityService = new SecurityService(env, logger, this);
+
+    // Serviço de validação de chunks
+    this.chunkValidationService = new ChunkValidationService(env, logger, this);
 
     // Serviço que gerencia objetos do mundo (stone, wood, bush, etc)
 
@@ -316,6 +324,12 @@ broadcastPlayersListToMap(mapId) {
     this.sessions.set(ws, session);           // WebSocket -> sessão
     this.players.set(sessionId, player);      // sessionId -> player
 
+    // Inicializa rastreamento de segurança do jogador
+    this.securityService.initializePlayer(player);
+    
+    // Inicializa rastreamento de chunks do jogador
+    // (chunkValidationService não precisa de inicialização explícita, mas poderia ter)
+
     this.logger.info({ user: user.username, sessionId, mapId: player.mapId }, 'Sessão anexada');
 
     // Se o jogador estava dormindo, envia mensagem de "wake up"
@@ -439,6 +453,14 @@ finalizeDisconnect(player, user, ws) {
   // Remove do mapa de sleeping players
   if (player?.sessionId) {
     this.sleepingPlayers.delete(player.sessionId);
+  }
+
+  // Limpa rastreamento de segurança
+  try {
+    this.securityService.cleanupPlayer(player);
+    this.chunkValidationService.cleanupPlayer(player.sessionId);
+  } catch (err) {
+    this.logger?.warn({ err: err?.message, sessionId: player?.sessionId }, 'Falha ao limpar serviços de segurança');
   }
 
   // 1) Envia mensagem "has left" e efeito "poofed" para outros jogadores
