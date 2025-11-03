@@ -285,6 +285,36 @@ export class PlayerService {
       this.env.MAP_VIEW_RADIUS_Y
     );
     
+    // === VALIDAÇÃO DE CHUNK ===
+    // Valida o chunk antes de enviar
+    const validation = this.world.chunkValidationService.validateChunk(
+      player,
+      map,
+      player._lastViewOX,
+      player._lastViewOY,
+      this.env.MAP_VIEW_RADIUS_X,
+      this.env.MAP_VIEW_RADIUS_Y,
+      tiles
+    );
+
+    if (!validation.valid) {
+      // Chunk inválido - não envia e loga erro
+      this.logger.error(
+        { sessionId: player.sessionId, reason: validation.reason },
+        'Chunk inválido bloqueado'
+      );
+      return;
+    }
+
+    // Se é um chunk duplicado, não precisa enviar novamente
+    if (validation.duplicate) {
+      this.logger.debug(
+        { sessionId: player.sessionId, checksum: validation.checksum },
+        'Chunk duplicado não enviado'
+      );
+      return;
+    }
+
     // Envia pacote 'map' com tiles
     this.world.sendTo(player, { type: 'map', x: player.x, y: player.y, tiles });
 
@@ -388,6 +418,20 @@ export class PlayerService {
       const dy = (player.dir === 2 ? 1 : player.dir === 0 ? -1 : 0);
       const nx = player.x + dx;  // Próxima posição X
       const ny = player.y + dy;  // Próxima posição Y
+
+      // === VALIDAÇÃO DE SEGURANÇA ===
+      // Valida movimento usando o serviço de segurança
+      const validation = this.world.securityService.validateMovement(player, nx, ny, player.dir);
+      if (!validation.valid) {
+        // Movimento inválido - bloqueia e loga
+        this.logger.warn(
+          { sessionId: player.sessionId, reason: validation.reason, from: {x: player.x, y: player.y}, to: {x: nx, y: ny} },
+          'Movimento bloqueado por validação de segurança'
+        );
+        // Para o movimento do jogador
+        this.stopMoving(player);
+        break;
+      }
 
       // Consome o tempo deste passo do acumulador
       player._accumMs -= stepMs;

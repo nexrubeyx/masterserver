@@ -146,6 +146,25 @@ export function createMessageRouter(env, logger, world) {
         const session = world.getSession(ws);
         if (!session) return;  // Sem sessão = não autenticado, ignora
         
+        // Valida coordenadas enviadas pelo cliente
+        const coordValidation = world.securityService.validateClientCoordinates(
+          session.player,
+          packet.x,
+          packet.y
+        );
+
+        if (!coordValidation.valid) {
+          // Coordenadas inválidas - resincroniza cliente com servidor
+          world.logger.warn(
+            { sessionId: session.player.sessionId, reason: coordValidation.reason },
+            'Cliente com coordenadas dessincronizadas (comando m)'
+          );
+          
+          // Força envio de snapshot correto para resincronizar
+          world.sendTo(session.player, world.playerService.makePlayerSnapshotPacket(session.player));
+          return;
+        }
+
         // Atualiza direção do jogador e notifica outros
         world.playerService.setHeading(session.player, packet.d);
         return;
@@ -157,6 +176,25 @@ export function createMessageRouter(env, logger, world) {
         const session = world.getSession(ws);
         if (!session) return;  // Sem sessão = não autenticado, ignora
         
+        // Valida coordenadas enviadas pelo cliente
+        const coordValidation = world.securityService.validateClientCoordinates(
+          session.player,
+          packet.x,
+          packet.y
+        );
+
+        if (!coordValidation.valid) {
+          // Coordenadas inválidas - resincroniza cliente com servidor
+          world.logger.warn(
+            { sessionId: session.player.sessionId, reason: coordValidation.reason },
+            'Cliente com coordenadas dessincronizadas (comando h)'
+          );
+          
+          // Força envio de snapshot correto para resincronizar
+          world.sendTo(session.player, world.playerService.makePlayerSnapshotPacket(session.player));
+          return;
+        }
+
         // Se tem direção (0-3), inicia movimento naquela direção
         if (Number.isInteger(packet.d)) {
           world.playerService.startMoving(session.player, packet.d);
