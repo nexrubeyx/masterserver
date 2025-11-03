@@ -196,35 +196,44 @@ export class PlayerService {
    * @param {Object} player - Jogador
    * 
    * O viewport é marcado quando:
-   * - A origem mudou, OU
-   * - A posição do jogador mudou (mesmo que a origem permaneça clamped nas bordas)
+   * - O jogador se moveu além do limite de chunk (CHUNK_THRESHOLD)
+   * - É o primeiro viewport (valores undefined)
    * 
    * Isso garante que:
-   * - O viewport é atualizado quando o jogador se move para uma nova região
-   * - O viewport é atualizado quando o jogador se move perto das bordas (novos tiles visíveis)
-   * - O viewport NÃO é enviado repetidamente quando o jogador está parado
+   * - O viewport NÃO é enviado a cada passo do jogador (otimização de chunk)
+   * - O viewport é atualizado apenas quando o jogador se afasta suficiente do último centro
+   * - Isso reduz drasticamente o tráfego de rede
    * 
-   * Múltiplas mudanças no mesmo tick resultam em apenas um envio.
+   * Sistema de chunks baseado em coordenadas:
+   * - Define um limite de distância (CHUNK_THRESHOLD = 4 tiles)
+   * - Viewport só é reenviado quando o jogador se move mais de 4 tiles do último centro
+   * - Isso significa viewport é enviado aproximadamente a cada 4 passos em linha reta
+   * - Múltiplas mudanças no mesmo tick resultam em apenas um envio
    */
   markViewportDirty(player) {
-    const { ox, oy } = this.getViewportOrigin(player);
+    // Define o limite de chunk (quantos tiles o jogador pode se mover antes de reenviar viewport)
+    // Com threshold de 4, viewport é enviado a cada ~4 passos
+    const CHUNK_THRESHOLD = 4;
     
-    // Marca como dirty se a origem do viewport mudou
-    const originChanged = (player._lastViewOX !== ox || player._lastViewOY !== oy);
-    
-    // Marca como dirty se a posição do jogador mudou desde o último envio
-    // Isso cobre o caso de estar perto da borda onde a origem não muda
-    // mas novos tiles ficam visíveis à medida que o jogador se move
-    // NOTA: Na primeira chamada, _lastViewPlayerX/Y serão undefined,
-    // então playerMoved será true, o que é correto (precisamos enviar viewport inicial)
-    const playerMoved = (
-      player._lastViewPlayerX !== player.x || 
-      player._lastViewPlayerY !== player.y
-    );
-    
-    // Marca como dirty se origem mudou OU se jogador se moveu
-    if (originChanged || playerMoved) {
+    // Se é o primeiro viewport (valores undefined), marca como dirty
+    if (player._lastViewPlayerX === undefined || player._lastViewPlayerY === undefined) {
       player._viewDirty = true;
+      const { ox, oy } = this.getViewportOrigin(player);
+      player._pendingOX = ox;
+      player._pendingOY = oy;
+      return;
+    }
+    
+    // Calcula distância desde o último envio de viewport
+    const dx = Math.abs(player.x - player._lastViewPlayerX);
+    const dy = Math.abs(player.y - player._lastViewPlayerY);
+    
+    // Marca como dirty se o jogador se moveu além do limite de chunk
+    // Usa distância Manhattan (dx + dy) ou máximo (max(dx, dy)) dependendo da preferência
+    // Aqui usamos máximo para criar uma região quadrada de ~8x8 tiles antes de reenviar
+    if (dx >= CHUNK_THRESHOLD || dy >= CHUNK_THRESHOLD) {
+      player._viewDirty = true;
+      const { ox, oy } = this.getViewportOrigin(player);
       player._pendingOX = ox;
       player._pendingOY = oy;
     }
@@ -259,7 +268,7 @@ export class PlayerService {
     player._lastMapAt = now;
     
     // Guarda a posição do jogador quando o viewport foi enviado
-    // Isso permite que markViewportDirty() detecte quando o jogador se moveu
+    // Isso permite que markViewportDirty() detecte quando o jogador se moveu além do limite de chunk
     player._lastViewPlayerX = player.x;
     player._lastViewPlayerY = player.y;
 
