@@ -130,3 +130,20 @@ Foram adicionados comentários em português explicando:
 - **Aumento**: +33% devido aos comentários e formatação
 
 Este aumento é aceitável considerando que o arquivo agora é muito mais fácil de entender e manter.
+
+## Notas Técnicas
+
+### Compatibilidade com Node.js
+
+O arquivo foi organizado mantendo 100% do código original intacto. Existem algumas construções que podem gerar warnings em Node.js com modo strict (como `delete` de variáveis não qualificadas), mas estas **funcionam perfeitamente em navegadores**, que é o ambiente de execução pretendido.
+
+Estas construções estavam presentes no código minificado original e foram mantidas para preservar a compatibilidade exata com o comportamento do jogo.
+
+### Ambiente de Execução
+
+- **Projetado para**: Navegadores web (Chrome, Firefox, Safari, Edge)
+- **Suporta**: Mobile via Cordova
+- **Requer**: PIXI.js (renderização)
+- **Opcional**: Ace Editor (para scripts)
+
+O arquivo deve ser carregado via tag `<script>` em uma página HTML, não executado diretamente via Node.js.
