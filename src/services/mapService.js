@@ -16,7 +16,9 @@
  *   "title": "Mundo Principal",
  *   "width": 100,
  *   "height": 100,
- *   "tiles": [[tile1, tile2, ...], [row2...], ...],
+ *   "tiles": [[tile1, tile2, ...], [row2...], ...],  // Array 2D
+ *   // OU
+ *   "tiles": "0:0:0:0:209:209:209:...",  // String separada por ':'
  *   "fill": 0,  // Alternativa a tiles: preenche tudo com tile 0
  *   "templates": [  // Templates de objetos específicos deste mapa
  *     {
@@ -262,8 +264,27 @@ export class MapService {
   normalizeMapData(json) {
     // === GERAÇÃO/NORMALIZAÇÃO DE TILES ===
     
+    // Se tiles é uma string (formato "0:0:0:209:209:..."), converte para array 2D
+    if (typeof json.tiles === 'string') {
+      // Separa string por ':' e converte cada valor para número
+      const tileValues = json.tiles.split(':').map(v => {
+        const num = Number(v);
+        return Number.isFinite(num) ? num : 0;
+      });
+      
+      // Converte array linear em array 2D (height x width)
+      json.tiles = [];
+      for (let y = 0; y < json.height; y++) {
+        const row = [];
+        for (let x = 0; x < json.width; x++) {
+          const index = y * json.width + x;
+          row.push(index < tileValues.length ? tileValues[index] : 0);
+        }
+        json.tiles.push(row);
+      }
+    }
     // Se não tem array de tiles mas tem "fill", gera tiles preenchidos
-    if (!Array.isArray(json.tiles) && typeof json.fill === 'number') {
+    else if (!Array.isArray(json.tiles) && typeof json.fill === 'number') {
       // Cria array 2D: height linhas x width colunas, todas com valor fill
       json.tiles = Array.from({ length: json.height }, () =>
         Array.from({ length: json.width }, () => json.fill)
