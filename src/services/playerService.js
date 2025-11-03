@@ -317,7 +317,8 @@ export class PlayerService {
     }
 
     // === COMPRESSÃO E ENCAPSULAMENTO DO MAPA ===
-    // Estrutura: PKG → ZIP → MAP
+    // Estrutura: PKG → ZIP → MAP (conforme especificação do protocolo)
+    // NOTA: A estrutura aninhada é obrigatória pelo protocolo do cliente
     // 1. Cria pacote MAP com os dados do mapa
     const mapPacket = { type: 'map', x: player.x, y: player.y, tiles };
     const mapJson = JSON.stringify(mapPacket);
