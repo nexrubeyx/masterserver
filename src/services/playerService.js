@@ -215,6 +215,8 @@ export class PlayerService {
     // Marca como dirty se a posição do jogador mudou desde o último envio
     // Isso cobre o caso de estar perto da borda onde a origem não muda
     // mas novos tiles ficam visíveis à medida que o jogador se move
+    // NOTA: Na primeira chamada, _lastViewPlayerX/Y serão undefined,
+    // então playerMoved será true, o que é correto (precisamos enviar viewport inicial)
     const playerMoved = (
       player._lastViewPlayerX !== player.x || 
       player._lastViewPlayerY !== player.y
