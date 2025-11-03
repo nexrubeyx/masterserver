@@ -52,7 +52,6 @@ export function decompressFromBase64(base64Data) {
 }
 
 /**
- * ==========================================
  * LZW Compression (Cliente-compatível)
  * ==========================================
  * 
@@ -64,6 +63,13 @@ export function decompressFromBase64(base64Data) {
  * 
  * LZW é ideal para dados com padrões repetitivos como tiles de mapa.
  */
+
+// Constantes do algoritmo LZW
+const LZW_DICT_START_CODE = 57344;  // Código inicial do dicionário (igual ao cliente)
+
+// Constantes de otimização de compressão
+const COMPRESSION_RATIO_THRESHOLD = 0.9;  // Só usa compressão se reduzir >= 10%
+const MIN_SIZE_FOR_COMPRESSION = 50;  // Tamanho mínimo para considerar compressão
 
 /**
  * Comprime string usando algoritmo LZW compatível com jv.unzip
@@ -90,7 +96,7 @@ export function compressLZW(uncompressed) {
   // Variáveis de estado
   let currChar = data[0];
   let phrase = currChar;
-  let code = 57344; // Código inicial para dicionário (igual ao cliente)
+  let code = LZW_DICT_START_CODE; // Código inicial para dicionário (igual ao cliente)
   
   // Processa cada caractere
   for (let i = 1; i < data.length; i++) {
@@ -145,12 +151,12 @@ export function decompressLZW(compressed) {
   let currChar = data[0];
   let oldPhrase = currChar;
   const output = [currChar];
-  let code = 57344;
+  let code = LZW_DICT_START_CODE;
   
   for (let phrase = 1; phrase < data.length; phrase++) {
     const currCode = data[phrase].charCodeAt(0);
     
-    if (currCode < 57344) {
+    if (currCode < LZW_DICT_START_CODE) {
       // Código literal
       result = data[phrase];
     } else if (dict[currCode]) {
@@ -184,5 +190,6 @@ export function decompressLZW(compressed) {
 export function shouldUseLZWCompression(original, compressed) {
   // Usa compressão se reduzir pelo menos 10% do tamanho
   // Para strings muito pequenas (<50 chars), não compensa
-  return compressed.length < original.length * 0.9 && original.length > 50;
+  return compressed.length < original.length * COMPRESSION_RATIO_THRESHOLD && 
+         original.length > MIN_SIZE_FOR_COMPRESSION;
 }

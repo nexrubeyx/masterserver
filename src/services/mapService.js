@@ -95,6 +95,10 @@ export class MapService {
     
     // Mapa de mapas: mapId -> { width, height, title, id, tiles:number[][], neighbors }
     this.maps = new Map();
+    
+    // Limites de performance para avisos
+    this.LARGE_MAP_TILE_THRESHOLD = 100000;  // 100k tiles
+    this.LARGE_MAP_STRING_THRESHOLD = 1000000;  // 1MB
   }
 
   /**
@@ -272,7 +276,8 @@ export class MapService {
       const estimatedLength = json.tiles.length;
       
       // Aviso para mapas muito grandes (>100k tiles ou >1MB de string)
-      if (expectedTiles > 100000 || estimatedLength > 1000000) {
+      if (expectedTiles > this.LARGE_MAP_TILE_THRESHOLD || 
+          estimatedLength > this.LARGE_MAP_STRING_THRESHOLD) {
         this.logger?.warn(
           { id: json.id, tiles: expectedTiles, stringLength: estimatedLength },
           'Mapa grande detectado com formato string - pode impactar performance de carregamento'
