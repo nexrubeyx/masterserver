@@ -39,6 +39,9 @@ export class SecurityService {
     // Tolerância de tempo mínimo entre movimentos (ms)
     // Previne movimentos mais rápidos que o permitido
     this.minMovementInterval = Number(env.SECURITY_MIN_MOVE_INTERVAL || 20);
+    
+    // Threshold de chunk para reenviio de viewport
+    this.chunkThreshold = Number(env.SECURITY_CHUNK_THRESHOLD || 4);
   }
 
   /**

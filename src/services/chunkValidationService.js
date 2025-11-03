@@ -30,6 +30,10 @@ export class ChunkValidationService {
     // Map: sessionId -> { chunkKey: checksum }
     this.chunkChecksums = new Map();
 
+    // Configurações
+    this.maxTileId = Number(env.SECURITY_MAX_TILE_ID || 10000);
+    this.chunkCacheSize = Number(env.SECURITY_CHUNK_CACHE_SIZE || 20);
+
     // Estatísticas de chunks enviados
     this.stats = {
       totalSent: 0,
@@ -137,7 +141,7 @@ export class ChunkValidationService {
 
       // Verifica se o ID do tile está em um range razoável
       // Tiles tipicamente são 0-1000, mas vamos ser mais permissivos
-      if (tileNum < 0 || tileNum > 10000) {
+      if (tileNum < 0 || tileNum > this.maxTileId) {
         this._recordError('tile_fora_range', {
           index: i,
           value: tileNum,
@@ -256,9 +260,9 @@ export class ChunkValidationService {
     const playerChecksums = this.chunkChecksums.get(sessionId);
     playerChecksums[chunkKey] = checksum;
 
-    // Limita tamanho do cache por jogador (últimos 20 chunks)
+    // Limita tamanho do cache por jogador
     const keys = Object.keys(playerChecksums);
-    if (keys.length > 20) {
+    if (keys.length > this.chunkCacheSize) {
       delete playerChecksums[keys[0]]; // Remove o mais antigo
     }
   }

@@ -142,7 +142,13 @@ export function loadEnv() {
     // Intervalo mínimo em ms entre movimentos válidos (anti-speedhack)
     SECURITY_MIN_MOVE_INTERVAL: parseInt(process.env.SECURITY_MIN_MOVE_INTERVAL || '20', 10),
     // Tolerância em tiles para coordenadas cliente vs servidor (compensar lag)
-    SECURITY_COORD_TOLERANCE: parseInt(process.env.SECURITY_COORD_TOLERANCE || '2', 10)
+    SECURITY_COORD_TOLERANCE: parseInt(process.env.SECURITY_COORD_TOLERANCE || '2', 10),
+    // Threshold de chunk - quantos tiles o jogador pode se mover antes de reenviar viewport
+    SECURITY_CHUNK_THRESHOLD: parseInt(process.env.SECURITY_CHUNK_THRESHOLD || '4', 10),
+    // ID máximo de tile considerado válido
+    SECURITY_MAX_TILE_ID: parseInt(process.env.SECURITY_MAX_TILE_ID || '10000', 10),
+    // Tamanho do cache de checksums de chunks por jogador
+    SECURITY_CHUNK_CACHE_SIZE: parseInt(process.env.SECURITY_CHUNK_CACHE_SIZE || '20', 10)
   };
 
   return env;
