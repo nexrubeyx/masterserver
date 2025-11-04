@@ -196,14 +196,19 @@ export class SecurityService {
    * Esta função verifica se essas coordenadas correspondem ao
    * estado do servidor (autoridade do servidor).
    * 
+   * Com tolerância 0, implementamos strict server authority:
+   * - O servidor é a única fonte de verdade para posições
+   * - Qualquer diferença resulta em correção imediata
+   * - Previne completamente dessincronia de posições
+   * 
    * @param {Object} player - Jogador
    * @param {number} clientX - Posição X enviada pelo cliente
    * @param {number} clientY - Posição Y enviada pelo cliente
-   * @returns {Object} { valid: boolean, reason?: string }
+   * @returns {Object} { valid: boolean, reason?: string, needsCorrection: boolean }
    */
   validateClientCoordinates(player, clientX, clientY) {
     if (!player) {
-      return { valid: false, reason: 'Player inválido' };
+      return { valid: false, reason: 'Player inválido', needsCorrection: false };
     }
 
     // Usa tolerância configurada no construtor
@@ -214,28 +219,42 @@ export class SecurityService {
 
     const distance = this._calculateDistance(serverX, serverY, clientX, clientY);
 
-    if (distance > tolerance) {
-      this._recordViolation(player, 'dessincronia', {
-        client: { x: clientX, y: clientY },
-        server: { x: serverX, y: serverY },
-        distance,
-        tolerance
-      });
+    // Se coordenadas são exatas, validação passou
+    if (distance === 0) {
+      return { valid: true, needsCorrection: false };
+    }
 
-      this.logger.warn(
+    // Se há qualquer diferença, precisa correção
+    if (distance > tolerance) {
+      // Registra violação apenas se exceder tolerância significativa (> 2 tiles)
+      // Isso evita spam de logs para pequenas diferenças de lag
+      if (distance > 2) {
+        this._recordViolation(player, 'dessincronia', {
+          client: { x: clientX, y: clientY },
+          server: { x: serverX, y: serverY },
+          distance,
+          tolerance
+        });
+      }
+
+      this.logger.debug(
         {
           sessionId: player.sessionId,
           client: { x: clientX, y: clientY },
           server: { x: serverX, y: serverY },
           distance
         },
-        'Coordenadas do cliente fora de sincronia'
+        'Coordenadas do cliente diferem do servidor - enviando correção'
       );
 
-      return { valid: false, reason: `Dessincronia detectada: distância ${distance} (max: ${tolerance})` };
+      return { 
+        valid: false, 
+        reason: `Dessincronia detectada: distância ${distance} (max: ${tolerance})`,
+        needsCorrection: true 
+      };
     }
 
-    return { valid: true };
+    return { valid: true, needsCorrection: false };
   }
 
   /**

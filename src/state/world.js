@@ -101,6 +101,9 @@ export class World {
    * - Envio de snapshots de posição para outros jogadores
    * 
    * Usa delta time (dt) para compensar variações no tempo de execução.
+   * 
+   * A cada 5 segundos, envia reconciliação completa de todas as posições
+   * para garantir que todos os clientes estejam sincronizados.
    */
   startGameLoop() {
     // Intervalo do tick em milissegundos (50ms = 20 Hz)
@@ -111,6 +114,12 @@ export class World {
 
     // Inicializa timestamp do último tick
     this._lastTickAt = Date.now();
+    
+    // Timestamp da última reconciliação completa
+    this._lastReconciliationAt = Date.now();
+    
+    // Intervalo de reconciliação completa (5 segundos)
+    const RECONCILIATION_INTERVAL_MS = 5000;
 
     // Cria interval que executa o tick periodicamente
     this._tickTimer = setInterval(() => {
@@ -124,9 +133,61 @@ export class World {
       for (const player of this.players.values()) {
         this.playerService.tickPlayer(player, dt);
       }
+      
+      // A cada 5 segundos, envia reconciliação completa de posições
+      // Isso garante que mesmo com pacotes perdidos, eventualmente todos
+      // os clientes terão a visão correta das posições dos jogadores
+      if (now - this._lastReconciliationAt >= RECONCILIATION_INTERVAL_MS) {
+        this._lastReconciliationAt = now;
+        this._reconcileAllPlayerPositions();
+      }
     }, TICK_MS);
 
-    this.logger.info({ TICK_MS }, 'Game loop iniciado');
+    this.logger.info({ TICK_MS, RECONCILIATION_INTERVAL_MS }, 'Game loop iniciado com reconciliação periódica');
+  }
+  
+  /**
+   * Reconcilia posições de todos os jogadores
+   * 
+   * Envia broadcast completo de posições para todos os mapas.
+   * Isso garante que mesmo com pacotes perdidos ou lag, todos
+   * os clientes eventualmente convergem para o estado correto.
+   * 
+   * @private
+   */
+  _reconcileAllPlayerPositions() {
+    // Agrupa jogadores por mapa
+    const playersByMap = new Map();
+    
+    for (const player of this.players.values()) {
+      if (!player.mapId) continue;
+      
+      if (!playersByMap.has(player.mapId)) {
+        playersByMap.set(player.mapId, []);
+      }
+      playersByMap.get(player.mapId).push(player);
+    }
+    
+    // Para cada mapa, envia lista completa de jogadores
+    for (const [mapId, playersInMap] of playersByMap.entries()) {
+      if (playersInMap.length === 0) continue;
+      
+      // Monta o pacote 'pl' com todos os jogadores do mapa
+      const plData = playersInMap.map((p) => {
+        const snap = this.playerService.makePlayerSnapshotPacket(p);
+        return JSON.stringify(snap);
+      });
+      
+      const plPacket = { type: 'pl', data: plData };
+      
+      // Envia para todos no mapa
+      this.broadcastInMap(mapId, plPacket);
+    }
+    
+    this.logger.debug(
+      { mapsReconciled: playersByMap.size, totalPlayers: this.players.size },
+      'Reconciliação periódica de posições executada'
+    );
   }
 
 

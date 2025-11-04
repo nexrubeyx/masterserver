@@ -366,16 +366,20 @@ export class PlayerService {
    * 
    * @param {Object} player - Jogador
    * @param {number} now - Timestamp atual (ms)
+   * @param {boolean} immediate - Se true, ignora rate limit e envia imediatamente
    * 
    * Envia pacote 'p' para OUTROS jogadores no mesmo mapa.
    * Não envia para o próprio jogador (ele já sabe onde está).
+   * 
+   * O parâmetro 'immediate' é usado quando precisamos garantir
+   * sincronização imediata, como após correção de posição.
    */
-  flushSnapshotIfDirty(player, now) {
+  flushSnapshotIfDirty(player, now, immediate = false) {
     // Não faz nada se snapshot não mudou
     if (!player._snapshotDirty) return;
     
-    // Rate limiting: respeita intervalo mínimo entre snapshots
-    if (now - (player._lastSnapshotAt || 0) < this._snapshotMinInterval) return;
+    // Rate limiting: respeita intervalo mínimo entre snapshots (a menos que seja imediato)
+    if (!immediate && now - (player._lastSnapshotAt || 0) < this._snapshotMinInterval) return;
 
     // Envia snapshot para outros jogadores (não para si mesmo)
     this.world.sendToOthersInMap(player, this.makePlayerSnapshotPacket(player));
@@ -537,9 +541,10 @@ export class PlayerService {
       // Envia novo viewport se origem mudou
       this.flushViewportIfDirty(player, now);
       
-      // Marca e envia snapshot de posição para outros jogadores
+      // Marca e envia snapshot de posição para outros jogadores IMEDIATAMENTE
+      // Isso garante que todos os jogadores vejam a posição atualizada sem delay
       this.markSnapshotDirty(player);
-      this.flushSnapshotIfDirty(player, now);
+      this.flushSnapshotIfDirty(player, now, true); // immediate = true para ignorar rate limit
     }
   }
 
