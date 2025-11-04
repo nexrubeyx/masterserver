@@ -69,7 +69,7 @@ export class PlayerService {
   makePlayerTemplatePacket(player) {
     return {
       type: 'plr_tpl',
-      id: String(player.sessionId),
+      id: Number(player.sessionId),
       n: player.name,
       t: '',  // Título (vazio por padrão)
       l: player.level,
@@ -108,8 +108,8 @@ export class PlayerService {
   makePlayerSnapshotPacket(player) {
     return {
       type: 'p',
-      id: String(player.sessionId),
-      tpl: String(player.sessionId),
+      id: Number(player.sessionId),
+      tpl: Number(player.sessionId),
       x: player.x,
       y: player.y,
       dx: player.x,  // Delta X igual à posição x
