@@ -60,17 +60,22 @@ export function getAllTemplates() {
  * @param {Object} t - Template a enviar
  */
 export function sendTemplate(ws, t) {
-  ws.send(JSON.stringify({
+  const packet = {
     type: "obj_tpl",
     tpl: t.tpl,
     name: t.name,
-    desc: t.desc,
+    spr: t.spr,
     stack: Number(!!t.stack),
     pickup: Number(!!t.pickup),
-    block: Number(!!t.block),
-    spr: t.spr,
-    build: t.build || ""
-  }));
+    block: Number(!!t.block)
+  };
+  
+  // Only include build if it has a value
+  if (t.build) {
+    packet.build = t.build;
+  }
+  
+  ws.send(JSON.stringify(packet));
 }
 
 /**

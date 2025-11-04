@@ -26,7 +26,6 @@
  * @param {number} frameB - Número do sprite do segundo frame
  * @param {Object} options - Opções de customização
  * @param {string} [options.name] - Nome do objeto
- * @param {string} [options.desc] - Descrição do objeto
  * @param {number} [options.stack] - Se empilhável (0 = não)
  * @param {number} [options.pickup] - Se pode ser coletado (0 = não)
  * @param {number} [options.block] - Se bloqueia movimento (1 = sim)
@@ -50,7 +49,6 @@ export function buildAnimatedObjTplPacket(tpl, frameA, frameB, options = {}) {
   // Extrai opções com valores padrão
   const {
     name = "Animated Object",      // Nome do objeto
-    desc = "2-frame animation",     // Descrição
     stack = 0,                      // Não empilhável
     pickup = 0,                     // Não pode ser coletado
     block = 1,                      // Bloqueia movimento
@@ -82,7 +80,6 @@ export function buildAnimatedObjTplPacket(tpl, frameA, frameB, options = {}) {
     type: "obj_tpl",      // Tipo de pacote
     tpl,                  // ID do template
     name,                 // Nome do objeto
-    desc,                 // Descrição
     stack,                // Se empilhável
     pickup,               // Se pode ser coletado
     block,                // Se bloqueia movimento
