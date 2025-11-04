@@ -7,6 +7,10 @@
 /**
  * Removes control characters that might cause JSON parse errors
  * 
+ * Preserves safe whitespace characters (tab 0x09, line feed 0x0A, carriage return 0x0D)
+ * but removes null bytes and other control characters (0x00-0x08, 0x0B, 0x0C, 0x0E-0x1F, 0x7F)
+ * that could cause JSON parsing issues.
+ * 
  * @param {string} str - String to sanitize
  * @returns {string} Sanitized string
  */
@@ -38,7 +42,8 @@ export function isValidForJSON(data) {
  * Safely stringify data with error handling
  * 
  * @param {any} data - Data to stringify
- * @param {any} fallback - Fallback value if stringify fails (default: {})
+ * @param {string|any} fallback - Fallback value if stringify fails. If string, returned directly.
+ *                                 If not a string, will attempt to stringify it. Default: '{}'
  * @returns {string} JSON string or fallback
  */
 export function safeStringify(data, fallback = '{}') {
