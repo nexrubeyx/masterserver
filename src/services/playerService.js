@@ -99,8 +99,8 @@ export class PlayerService {
    * - id: ID da sessão
    * - tpl: ID do template (mesmo que id)
    * - x, y: posição atual
-   * - dx: sempre 0 (sem offset visual)
-   * - dy: sempre 0 (sem offset visual)
+   * - dx: coordenada x de destino (igual a x)
+   * - dy: coordenada y de destino (igual a y)
    * - s: velocidade (ms/tile)
    * - d: direção (0=cima, 1=direita, 2=baixo, 3=esquerda)
    * - ch: channel/camada (0 = padrão)
@@ -112,8 +112,8 @@ export class PlayerService {
       tpl: String(player.sessionId),
       x: player.x,
       y: player.y,
-      dx: 0,  // Delta X sempre 0 (sem offset visual)
-      dy: 0,  // Delta Y sempre 0 (sem offset visual)
+      dx: player.x,  // Delta X igual à posição x
+      dy: player.y,  // Delta Y igual à posição y
       s: player.speed || 300,
       d: player.dir || 0,
       ch: 0  // Channel (não usado, sempre 0)
