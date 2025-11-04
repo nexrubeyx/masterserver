@@ -9,6 +9,11 @@ Implementa autenticação (login/guest), mapa em JSON com vizinhos (transição 
 - **Templates de Objetos**: Sistema de templates dinâmico com suporte a templates por mapa
 - **Colocação de Objetos**: Sistema de objectPlacements para popular mapas com objetos estáticos em coordenadas específicas
 - **Movimento tile-by-tile**: Sistema de movimento fluido com validação
+- **Sincronização de Posições**: Sistema de strict server authority com tolerância zero
+  - Garantia de que todos os jogadores veem outros na mesma posição
+  - Correção imediata de dessincronia
+  - Reconciliação periódica automática
+  - Zero bugs de visão ou posições inconsistentes
 - **Sistema de Validação de Tiles**: Tiles não-andáveis e modificadores de velocidade
   - Tiles que bloqueiam movimento (ex: montanhas, muros)
   - Tiles que modificam velocidade (buff/debuff - ex: estradas, lama)
@@ -59,9 +64,13 @@ node test-security.js
 
 # Testar sistema de validação de tiles e modificadores de velocidade
 node test-tile-system.js
+
+# Testar sincronização de posições de jogadores
+node test-position-sync.js
 ```
 
 ## Documentação Adicional
+- `POSITION_SYNC_IMPLEMENTATION.md` - Sistema de sincronização de posições com strict server authority
 - `TILE_VALIDATION_SPEED_SYSTEM.md` - Sistema de validação de tiles e modificadores de velocidade
 - `TEMPLATES_DOCUMENTATION.md` - Sistema completo de templates de objetos
 - `DEEP_WATER_IMPLEMENTATION.md` - Detalhes técnicos da implementação de água
