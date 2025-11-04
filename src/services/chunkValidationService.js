@@ -125,9 +125,43 @@ export class ChunkValidationService {
     }
 
     // === VALIDAÇÃO 4: Conteúdo dos Tiles ===
-    // Verifica se todos os tiles são números válidos
+    // Verifica se todos os tiles são válidos
+    // Suporta tiles numéricos (ex: "21") e tiles com underscore (ex: "21_1", "36_1")
     for (let i = 0; i < tileArray.length; i++) {
       const tile = tileArray[i];
+      
+      // Se o tile contém underscore, é notação de variante (ex: "21_1")
+      // Valida o número base antes do underscore
+      if (typeof tile === 'string' && tile.includes('_')) {
+        const parts = tile.split('_');
+        const baseTileNum = Number(parts[0]);
+        
+        // Verifica se a parte base é um número válido
+        if (!Number.isFinite(baseTileNum)) {
+          this._recordError('tile_invalido', {
+            index: i,
+            value: tile,
+            player: player.sessionId
+          });
+          return { valid: false, reason: `Tile com underscore inválido na posição ${i}: ${tile}` };
+        }
+        
+        // Verifica se o ID base do tile está em um range razoável
+        if (baseTileNum < 0 || baseTileNum > this.maxTileId) {
+          this._recordError('tile_fora_range', {
+            index: i,
+            value: tile,
+            baseTile: baseTileNum,
+            player: player.sessionId
+          });
+          return { valid: false, reason: `Tile base fora do range válido: ${tile} (base: ${baseTileNum})` };
+        }
+        
+        // Tile com underscore válido
+        continue;
+      }
+      
+      // Tile sem underscore - deve ser número puro
       const tileNum = Number(tile);
 
       if (!Number.isFinite(tileNum)) {
