@@ -261,22 +261,19 @@ export function createMessageRouter(env, logger, world) {
         if (!session) return;  // Sem sessão = não autenticado, ignora
         
         const player = session.player;
-        
-        // Verifica se o jogador tem premium usando função utilitária
         const isPremium = hasActivePremium(player);
-        
-        // Prepara objeto com as mudanças solicitadas (apenas body, hair, clothes)
-        // NÃO valida cores - aceita qualquer valor enviado pelo cliente
+
         const changes = {};
         if (typeof packet.b === 'number') changes.body = packet.b;
         if (typeof packet.h === 'number') changes.hair = packet.h;
         if (typeof packet.c === 'number') changes.clothes = packet.c;
-        
-        // Valida apenas body, hair e clothes (não valida cores)
+        if (typeof packet.cc === 'number') changes.clothesColor = packet.cc;
+        if (typeof packet.hc === 'number') changes.hairColor = packet.hc;
+        if (typeof packet.ec === 'number') changes.eyeColor = packet.ec;
+        if (typeof packet.nc === 'number') changes.nameColor = packet.nc;
+
         const validation = validateAppearanceChanges(changes, isPremium);
-        
         if (!validation.valid) {
-          // Mudança não permitida - envia erro
           world.sendTo(player, {
             type: 'c',
             r: 'er',
@@ -324,18 +321,6 @@ export function createMessageRouter(env, logger, world) {
             world.logger.warn({ err: err.message }, 'Failed to persist appearance change');
           });
           
-          // Envia resposta de sucesso com aparência completa (formato esperado pelo cliente)
-          world.sendTo(player, {
-            type: 'c',
-            r: 'ap',
-            c: player.appearance.clothes,
-            b: player.appearance.body,
-            h: player.appearance.hair,
-            cc: player.appearance.clothesColor,
-            hc: player.appearance.hairColor,
-            ec: player.appearance.eyeColor,
-            nc: player.appearance.nameColor
-          });
           
           // Atualiza template para TODOS os jogadores no mapa (incluindo o próprio jogador)
           const templatePacket = world.playerService.makePlayerTemplatePacket(player);
