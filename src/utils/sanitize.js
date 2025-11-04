@@ -27,7 +27,7 @@ export function sanitizeForJSON(str) {
 export function isValidForJSON(data) {
   try {
     const jsonStr = JSON.stringify(data);
-    const parsed = JSON.parse(jsonStr);
+    JSON.parse(jsonStr);
     return true;
   } catch (e) {
     return false;
@@ -38,7 +38,7 @@ export function isValidForJSON(data) {
  * Safely stringify data with error handling
  * 
  * @param {any} data - Data to stringify
- * @param {any} fallback - Fallback value if stringify fails
+ * @param {any} fallback - Fallback value if stringify fails (default: {})
  * @returns {string} JSON string or fallback
  */
 export function safeStringify(data, fallback = '{}') {
@@ -46,6 +46,16 @@ export function safeStringify(data, fallback = '{}') {
     return JSON.stringify(data);
   } catch (e) {
     console.error('Failed to stringify data:', e.message);
-    return typeof fallback === 'string' ? fallback : JSON.stringify(fallback);
+    // If fallback is a string, return it directly
+    if (typeof fallback === 'string') {
+      return fallback;
+    }
+    // Otherwise, try to stringify fallback with a final safety net
+    try {
+      return JSON.stringify(fallback);
+    } catch (e2) {
+      // Last resort: return empty object JSON
+      return '{}';
+    }
   }
 }
