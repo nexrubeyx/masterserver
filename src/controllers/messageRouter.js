@@ -249,6 +249,13 @@ export function createMessageRouter(env, logger, world) {
       // === SPRITE APPEARANCE CHANGE ===
       // Troca de sprite/aparência (sem validação de cores)
       // Cliente envia {"type":"c","r":"ap","c":1,"b":1,"h":1,"cc":14540253,"hc":6504471,"ec":255,"nc":15724527}
+      // 
+      // DESIGN DECISION: Este sistema NÃO valida cores intencionalmente.
+      // O cliente pode enviar qualquer cor RGB. Isso é diferente do sistema 'costume'
+      // que valida cores contra FREE_COLORS e PREMIUM_COLORS.
+      // 
+      // Motivo: Flexibilidade para o cliente - o servidor não restringe cores em sprites.
+      // Apenas body, hair e clothes são validados contra listas premium/free.
       case 'c': {
         const session = world.getSession(ws);
         if (!session) return;  // Sem sessão = não autenticado, ignora
