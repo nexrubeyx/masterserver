@@ -65,6 +65,18 @@ export const PREMIUM_HAIR = [
 ];
 
 /**
+ * Sprites/Costumes disponíveis no servidor (monstros)
+ * Quando sprite !== -1, o jogador aparece como um monstro em vez de humanoide
+ * O cliente suporta até 148 sprites de monstros (max_costume = 148)
+ * 
+ * Nota: -1 é o valor especial que indica "humanoide" (usa body/hair/clothes)
+ */
+export const AVAILABLE_SPRITES = Array.from({length: 148}, (_, i) => i + 1);
+
+// Set para validação eficiente O(1) em vez de O(n) com includes()
+const AVAILABLE_SPRITES_SET = new Set(AVAILABLE_SPRITES);
+
+/**
  * Cores gratuitas disponíveis para todos
  * Valores RGB em decimal (0x000000 a 0xFFFFFF = 0 a 16777215)
  * 
@@ -187,6 +199,20 @@ export function isColorAllowed(color, isPremium) {
 }
 
 /**
+ * Valida se um sprite/costume é permitido
+ * 
+ * @param {number} sprite - ID do sprite (-1 = humanoide, 1-148 = monstro)
+ * @param {boolean} isPremium - Se o jogador tem premium (não usado atualmente)
+ * @returns {boolean} true se permitido, false caso contrário
+ */
+export function isSpriteAllowed(sprite, isPremium) {
+  // -1 é sempre permitido (humanoide)
+  if (sprite === -1) return true;
+  // Verifica se está na lista de sprites disponíveis usando Set para O(1)
+  return AVAILABLE_SPRITES_SET.has(sprite);
+}
+
+/**
  * Verifica se o jogador tem premium ativo
  * 
  * @param {Object} player - Objeto do jogador
@@ -199,11 +225,19 @@ export function hasActivePremium(player) {
 /**
  * Valida todas as mudanças de aparência solicitadas
  * 
- * @param {Object} changes - Mudanças solicitadas { body?, hair?, clothes?, hairColor?, clothesColor?, eyeColor? }
+ * @param {Object} changes - Mudanças solicitadas { body?, hair?, clothes?, sprite?, hairColor?, clothesColor?, eyeColor? }
  * @param {boolean} isPremium - Se o jogador tem premium
  * @returns {Object} { valid: boolean, reason?: string }
  */
 export function validateAppearanceChanges(changes, isPremium) {
+  // Valida sprite se fornecido
+  if (changes.sprite !== undefined && !isSpriteAllowed(changes.sprite, isPremium)) {
+    return { 
+      valid: false, 
+      reason: 'Invalid sprite/costume ID'
+    };
+  }
+  
   // Valida body se fornecido
   if (changes.body !== undefined && !isBodyAllowed(changes.body, isPremium)) {
     return { 

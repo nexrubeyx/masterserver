@@ -17,7 +17,7 @@ import bcrypt from 'bcryptjs';
 import { readFile } from 'fs/promises';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
-import { findUserByUsername, createUser, setUserPermission } from '../models/User.js';
+import { findUserByUsername, createUser, setUserPermission, addPremiumDays } from '../models/User.js';
 import { createPlayer } from '../models/Player.js';
 
 // Determina o diretório atual do módulo
@@ -71,17 +71,25 @@ export async function initializeDefaultUsers(env, logger) {
  * Se não existe, cria o usuário com hash de senha e personagem inicial.
  */
 async function ensureDefaultUser(env, logger, userConfig) {
-  const { username, password, email, permission } = userConfig;
+  const { username, password, email, permission, premium } = userConfig;
 
   // Verifica se o usuário já existe
   const existingUser = await findUserByUsername(username);
 
   if (existingUser) {
-    // Usuário já existe - apenas atualiza permissão se necessário
+    // Usuário já existe - apenas atualiza permissão e premium se necessário
     if (existingUser.permission !== permission) {
       await setUserPermission(existingUser._id, permission);
       logger.info({ username, permission }, 'Permissão do usuário padrão atualizada');
-    } else {
+    }
+    
+    // Atualiza premium se especificado no config
+    if (premium && premium > 0) {
+      await addPremiumDays(existingUser._id, premium);
+      logger.info({ username, premium }, 'Premium do usuário padrão atualizado');
+    }
+    
+    if (existingUser.permission === permission) {
       logger.debug({ username }, 'Usuário padrão já existe');
     }
     return;
@@ -102,6 +110,12 @@ async function ensureDefaultUser(env, logger, userConfig) {
 
   // Define a permissão do usuário
   await setUserPermission(newUser._id, permission);
+
+  // Define premium se especificado no config
+  if (premium && premium > 0) {
+    await addPremiumDays(newUser._id, premium);
+    logger.info({ username, premium }, 'Premium configurado para usuário padrão');
+  }
 
   // Cria personagem inicial para o usuário
   const appearance = {
