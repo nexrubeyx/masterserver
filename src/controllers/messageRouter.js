@@ -22,6 +22,7 @@
 
 import { handleLoginOrCreate } from '../services/authService.js';
 import { getAllTemplates, makeTemplatePacket } from '../services/templateService.js';
+import { makeRecipePacket } from '../services/recipeService.js';
 
 /**
  * Cria função roteadora de mensagens
@@ -126,13 +127,16 @@ export function createMessageRouter(env, logger, world) {
         world.playerService.flushViewportIfDirty(player, Date.now());
 
  
-        // 7) Envia inventário inicial (vazio)
+        // 7) Envia dados de receitas/crafting (build data)
+        world.sendTo(player, makeRecipePacket());
+        
+        // 8) Envia inventário inicial (vazio)
         world.sendTo(player, { type: 'inv', data: [] });
         
-        // 8) Envia comando de música
+        // 9) Envia comando de música
         world.sendTo(player, { type: 'music', m: env.DEFAULT_SONG, s: 0 });
 
-        // 9) >>> CRÍTICO: Sincroniza presença com outros jogadores
+        // 10) >>> CRÍTICO: Sincroniza presença com outros jogadores
         // Notifica outros jogadores sobre o novo jogador E
         // Notifica o novo jogador sobre os outros já presentes
         world.syncPresence(player);

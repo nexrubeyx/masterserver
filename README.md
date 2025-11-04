@@ -41,6 +41,9 @@ Execute os testes automatizados:
 # Testar sistema de templates (lookup de objetos)
 node test-template-lookup.js
 
+# Testar sistema de receitas/crafting (fix de JSON parse error)
+node test-recipe-service.js
+
 # Testar implementação de água profunda
 node test-deep-water.js
 
