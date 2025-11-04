@@ -675,6 +675,24 @@ const poofedTemplate = {
   }
 
   /**
+   * Envia pacote para todos os jogadores no mesmo mapa
+   * 
+   * Envia para todos no mesmo mapa INCLUINDO o próprio jogador.
+   * Usado quando todos no mapa precisam receber a mesma atualização.
+   * 
+   * @param {Object} player - Jogador de referência (usa seu mapId)
+   * @param {Object} obj - Objeto a enviar
+   */
+  sendToAllInMap(player, obj) {
+    for (const [ws, session] of this.sessions) {
+      // Verifica se está no mesmo mapa
+      if (session.player.mapId === player.mapId) {
+        this.sendRaw(ws, obj);
+      }
+    }
+  }
+
+  /**
    * Broadcast para todos em um mapa específico
    * 
    * IMPORTANTE: Se o pacote é um snapshot 'p', não envia para o jogador
