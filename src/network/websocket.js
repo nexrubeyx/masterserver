@@ -20,7 +20,7 @@ import { validatePacket } from '../protocol/schema.js';
 import { createMessageRouter } from '../controllers/messageRouter.js';
 
 // === IMPORTAÇÕES PARA OBJETOS SOBRE TILES ===
-import { sendAllTemplates, findTemplate } from '../services/templateService.js';
+import { findTemplate } from '../services/templateService.js';
 import { ObjectLayer } from '../state/objectLayer.js';
 
 /**
