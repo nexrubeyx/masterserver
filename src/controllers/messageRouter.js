@@ -340,6 +340,11 @@ export function createMessageRouter(env, logger, world) {
           // Atualiza template para TODOS os jogadores no mapa (incluindo o próprio jogador)
           const templatePacket = world.playerService.makePlayerTemplatePacket(player);
           world.sendToAllInMap(player, templatePacket);
+          
+          // Envia snapshot para outros jogadores para que o cliente recrie o mob com o novo template
+          // Isso evita que o personagem desapareça após receber o plr_tpl update
+          const snapshotPacket = world.playerService.makePlayerSnapshotPacket(player);
+          world.sendToOthersInMap(player, snapshotPacket);
         }
         
         return;
@@ -435,6 +440,11 @@ export function createMessageRouter(env, logger, world) {
           // Atualiza template para TODOS os jogadores no mapa (incluindo o próprio jogador)
           const templatePacket = world.playerService.makePlayerTemplatePacket(player);
           world.sendToAllInMap(player, templatePacket);
+          
+          // Envia snapshot para outros jogadores para que o cliente recrie o mob com o novo template
+          // Isso evita que o personagem desapareça após receber o plr_tpl update
+          const snapshotPacket = world.playerService.makePlayerSnapshotPacket(player);
+          world.sendToOthersInMap(player, snapshotPacket);
         }
         
         return;
