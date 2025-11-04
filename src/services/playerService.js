@@ -23,7 +23,7 @@ import { savePlayerPosition } from '../models/Player.js';
 import { savePlayerState } from '../models/PlayerState.js';
 import { sendMapObjectSpawnsToPlayer, sendMapObjectPlacementsToPlayer } from './mapObjectsLoader.js';
 import { isDeepWater } from '../constants/tiles.js';
-import { compressToBase64 } from '../utils/compression.js';
+import { compressLZW } from '../utils/compression.js';
 
 export class PlayerService {
   /**
@@ -318,24 +318,22 @@ export class PlayerService {
     }
 
     // === COMPRESSÃO E ENCAPSULAMENTO DO MAPA ===
-    // Estrutura: PKG → ZIP → MAP (conforme especificação do protocolo)
-    // NOTA: A estrutura aninhada é obrigatória pelo protocolo do cliente
+    // Estrutura: ZIP → MAP (conforme protocolo original do cliente)
+    // O cliente espera receber um pacote ZIP com dados comprimidos usando LZW
+    // que ao serem descomprimidos com jv.unzip() revelam o pacote MAP
+    
     // 1. Cria pacote MAP com os dados do mapa
     const mapPacket = { type: 'map', x: player.x, y: player.y, tiles };
     const mapJson = JSON.stringify(mapPacket);
     
-    // 2. Comprime o MAP com gzip e converte para base64
-    const compressedMap = compressToBase64(mapJson);
+    // 2. Comprime o MAP JSON usando LZW (compatível com jv.unzip do cliente)
+    const compressedMap = compressLZW(mapJson);
     
-    // 3. Cria pacote ZIP com os dados comprimidos
+    // 3. Cria pacote ZIP com os dados comprimidos em LZW
     const zipPacket = { type: 'zip', data: compressedMap };
-    const zipJson = JSON.stringify(zipPacket);
     
-    // 4. Cria pacote PKG contendo o ZIP
-    const pkgPacket = { type: 'pkg', data: zipJson };
-    
-    // Envia o pacote PKG para o jogador
-    this.world.sendTo(player, pkgPacket);
+    // Envia o pacote ZIP para o jogador
+    this.world.sendTo(player, zipPacket);
 
     // Envia objetos animados presentes neste mapa
     sendMapObjectSpawnsToPlayer(player, map, this.world);
