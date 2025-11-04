@@ -169,14 +169,18 @@ export function createMessageRouter(env, logger, world) {
         );
 
         if (!coordValidation.valid) {
-          // Coordenadas inválidas - resincroniza cliente com servidor
-          world.logger.warn(
+          // Coordenadas inválidas - resincroniza cliente com servidor IMEDIATAMENTE
+          world.logger.debug(
             { sessionId: session.player.sessionId, reason: coordValidation.reason },
-            'Cliente com coordenadas dessincronizadas (comando m)'
+            'Cliente com coordenadas dessincronizadas (comando m) - corrigindo'
           );
           
           // Força envio de snapshot correto para resincronizar
-          world.sendTo(session.player, world.playerService.makePlayerSnapshotPacket(session.player));
+          const correctionSnapshot = world.playerService.makePlayerSnapshotPacket(session.player);
+          world.sendTo(session.player, correctionSnapshot);
+          
+          // Também envia para outros jogadores para garantir consistência
+          world.sendToOthersInMap(session.player, correctionSnapshot);
           return;
         }
 
@@ -199,14 +203,18 @@ export function createMessageRouter(env, logger, world) {
         );
 
         if (!coordValidation.valid) {
-          // Coordenadas inválidas - resincroniza cliente com servidor
-          world.logger.warn(
+          // Coordenadas inválidas - resincroniza cliente com servidor IMEDIATAMENTE
+          world.logger.debug(
             { sessionId: session.player.sessionId, reason: coordValidation.reason },
-            'Cliente com coordenadas dessincronizadas (comando h)'
+            'Cliente com coordenadas dessincronizadas (comando h) - corrigindo'
           );
           
           // Força envio de snapshot correto para resincronizar
-          world.sendTo(session.player, world.playerService.makePlayerSnapshotPacket(session.player));
+          const correctionSnapshot = world.playerService.makePlayerSnapshotPacket(session.player);
+          world.sendTo(session.player, correctionSnapshot);
+          
+          // Também envia para outros jogadores para garantir consistência
+          world.sendToOthersInMap(session.player, correctionSnapshot);
           return;
         }
 
