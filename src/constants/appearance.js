@@ -100,10 +100,20 @@ export const FREE_COLORS = [
 
 /**
  * Cores premium - requerem premium ativo
+ * 
+ * NOTA IMPORTANTE: Algumas cores (como 0xC0C0C0 - Silver) aparecem em ambas as listas
+ * FREE e PREMIUM. Isso é INTENCIONAL e permite que:
+ * 1. Jogadores free tenham acesso a cores comuns/básicas como prata
+ * 2. A validação funciona corretamente: isColorAllowed() retorna true para free players
+ * 
+ * A duplicação não causa problemas porque a função de validação verifica FREE_COLORS
+ * primeiro, então jogadores free podem usar essas cores sem precisar de premium.
+ * 
+ * Se no futuro quisermos tornar prata exclusiva para premium, basta removê-la de FREE_COLORS.
  */
 export const PREMIUM_COLORS = [
   0xFFD700,   // Ouro
-  0xC0C0C0,   // Prata
+  0xC0C0C0,   // Prata (também em FREE_COLORS - ver nota acima)
   0xCD7F32,   // Bronze
   0xFF1493,   // Rosa profundo
   0x4B0082,   // Indigo
