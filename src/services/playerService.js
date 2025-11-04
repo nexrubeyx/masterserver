@@ -22,7 +22,7 @@
 import { savePlayerPosition } from '../models/Player.js';
 import { savePlayerState } from '../models/PlayerState.js';
 import { sendMapObjectSpawnsToPlayer, sendMapObjectPlacementsToPlayer } from './mapObjectsLoader.js';
-import { isDeepWater } from '../constants/tiles.js';
+import { isDeepWater, isWalkable, getModifiedSpeed, DEFAULT_PLAYER_SPEED } from '../constants/tiles.js';
 import { compressLZW } from '../utils/compression.js';
 
 export class PlayerService {
@@ -425,7 +425,7 @@ export class PlayerService {
     player._accumMs = (player._accumMs || 0) + dt;
     
     // Tempo necessário para um passo (mínimo 20ms para evitar problemas)
-    const stepMs = Math.max(20, player.speed || 750);
+    const stepMs = Math.max(20, player.speed || DEFAULT_PLAYER_SPEED);
 
     // Flag para saber se houve movimento neste tick
     let moved = false;
@@ -482,12 +482,47 @@ export class PlayerService {
         }
       }
       
-     
+      // === VALIDAÇÃO DE TILE (WALKABILITY) ===
+      // Check if tile is walkable (not in NON_WALKABLE_TILES set)
+      if (Number.isFinite(tileAtTarget) && !isWalkable(tileAtTarget)) {
+        // Movement blocked by non-walkable tile
+        this.logger.debug(
+          { sessionId: player.sessionId, tile: tileAtTarget, pos: {x: nx, y: ny} },
+          'Movement blocked by non-walkable tile'
+        );
+        break;
+      }
 
       // === MOVIMENTO VÁLIDO ===
       // Passo está dentro do mapa, aplica movimento
       player.x = nx;
       player.y = ny;
+      
+      // === APLICAR SPEED MODIFIER DO TILE ===
+      // Apply speed modifier based on the tile the player is now standing on
+      // This affects the next movement step
+      const currentTile = map.tiles[player.y]?.[player.x];
+      if (Number.isFinite(currentTile)) {
+        const modifiedSpeed = getModifiedSpeed(player.baseSpeed || DEFAULT_PLAYER_SPEED, currentTile);
+        // Store both base speed and current modified speed
+        if (!player.baseSpeed) {
+          player.baseSpeed = player.speed || DEFAULT_PLAYER_SPEED;
+        }
+        player.speed = modifiedSpeed;
+        
+        // Log if speed was modified (for debugging)
+        if (modifiedSpeed !== player.baseSpeed) {
+          this.logger.debug(
+            { 
+              sessionId: player.sessionId, 
+              tile: currentTile, 
+              baseSpeed: player.baseSpeed,
+              modifiedSpeed: modifiedSpeed 
+            },
+            'Speed modifier applied'
+          );
+        }
+      }
 
       // Marca viewport como sujo para enviar viewport atualizado
       this.markViewportDirty(player);
