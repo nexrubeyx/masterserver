@@ -224,7 +224,7 @@ export async function checkAndUpdatePremium(userId) {
  * 
  * @param {string} userId - ID do usuário (_id)
  * @param {number} costumeId - ID do costume a desbloquear
- * @returns {Promise<void>}
+ * @returns {Promise<boolean>} true se o costume foi adicionado, false se já existia ou usuário não encontrado
  * 
  * Adiciona o costume à lista de costumes desbloqueados e atualiza a porcentagem.
  */
@@ -232,14 +232,14 @@ export async function addCostumeToUser(userId, costumeId) {
   const db = getDB();
   const user = await getUserById(userId);
   
-  if (!user) return;
+  if (!user) return false;
   
   // Inicializa arrays se não existirem (para usuários antigos)
   if (!user.costumes) user.costumes = [];
   if (!user.costumeList) user.costumeList = {};
   
   // Verifica se o usuário já tem esse costume
-  if (user.costumes.includes(costumeId)) return;
+  if (user.costumes.includes(costumeId)) return false;
   
   // Adiciona o costume
   const updatedCostumes = [...user.costumes, costumeId];
@@ -257,6 +257,8 @@ export async function addCostumeToUser(userId, costumeId) {
       } 
     }
   );
+  
+  return true;
 }
 
 /**

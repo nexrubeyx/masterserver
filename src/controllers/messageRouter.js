@@ -26,6 +26,7 @@ import { makeRecipePacket } from '../services/recipeService.js';
 import { validateAppearanceChanges, hasActivePremium } from '../constants/appearance.js';
 import { makeCostumeShopPacket, makeCostumeDataPacket, buyCostume, getCostumeCost } from '../services/costumeService.js';
 import { addCostumeToUser, getUserCostumeData, deductPremiumDays } from '../models/User.js';
+import { MAX_COSTUMES } from '../constants/costume.js';
 
 /**
  * Cria função roteadora de mensagens
@@ -393,7 +394,7 @@ export function createMessageRouter(env, logger, world) {
           const costumeId = Number(packet.c);
           
           // Valida costume ID
-          if (!Number.isInteger(costumeId) || costumeId < 0 || costumeId > 148) {
+          if (!Number.isInteger(costumeId) || costumeId < 0 || costumeId > MAX_COSTUMES) {
             return;
           }
           
