@@ -138,9 +138,9 @@ export function createMessageRouter(env, logger, world) {
         world.sendTo(player, {
           type: 'game',
           pr: player.premium || 0,  // Dias de premium
-          lb: 0,  // Lock body (0 = desbloqueado)
-          lh: 0,  // Lock hair (0 = desbloqueado)
-          lc: 0   // Lock clothes (0 = desbloqueado)
+          lb: '',  // Lock body (string vazia = nada bloqueado)
+          lh: '',  // Lock hair (string vazia = nada bloqueado)
+          lc: ''   // Lock clothes (string vazia = nada bloqueado)
         });
         
         // 9) Envia comando de música

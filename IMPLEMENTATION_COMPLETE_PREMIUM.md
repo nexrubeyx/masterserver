@@ -112,9 +112,9 @@ Translation:
 {
   type: 'game',
   pr: 10,  // Premium days
-  lb: 0,   // Lock body
-  lh: 0,   // Lock hair
-  lc: 0    // Lock clothes
+  lb: '',  // Lock body (empty string = nothing locked, use indexOf() to check)
+  lh: '',  // Lock hair (empty string = nothing locked, use indexOf() to check)
+  lc: ''   // Lock clothes (empty string = nothing locked, use indexOf() to check)
 }
 ```
 
