@@ -291,7 +291,7 @@ export class MapService {
         if (v.includes('_')) {
           return v;
         }
-        // Caso contrário, tenta converter para número
+        // Caso contrário, tenta converter para número (strings vazias ou puramente numéricas)
         const num = Number(v);
         return Number.isFinite(num) ? num : 0;
       });
@@ -348,7 +348,8 @@ export class MapService {
       }
       
       // === NORMALIZAÇÃO DE VALORES ===
-      // Garante que cada tile é um número válido ou string com underscore
+      // Garante que cada tile é um número válido ou string com underscore (ex: "21_1")
+      // Qualquer valor inválido (undefined, null, NaN, objetos) é convertido para 0
       for (let x = 0; x < json.width; x++) {
         const v = json.tiles[y][x];
         // Se é string (ex: "21_1"), preserva
