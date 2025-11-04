@@ -134,13 +134,28 @@ export class ChunkValidationService {
       // Valida o número base antes do underscore
       if (typeof tile === 'string' && tile.includes('_')) {
         const parts = tile.split('_');
+        
+        // Valida que o tile não começa com underscore (ex: "_1" é inválido)
+        // e que há pelo menos 2 partes (base_suffix)
+        if (parts[0] === '' || parts.length < 2) {
+          this._recordError('tile_invalido', {
+            index: i,
+            value: tile,
+            reason: 'Tile com underscore malformado (falta base ou sufixo)',
+            player: player.sessionId
+          });
+          return { valid: false, reason: `Tile com underscore malformado na posição ${i}: ${tile}` };
+        }
+        
         const baseTileNum = Number(parts[0]);
         
         // Verifica se a parte base é um número válido
+        // Number('') retorna 0, mas já validamos que parts[0] não é vazio acima
         if (!Number.isFinite(baseTileNum)) {
           this._recordError('tile_invalido', {
             index: i,
             value: tile,
+            reason: 'Base do tile não é um número válido',
             player: player.sessionId
           });
           return { valid: false, reason: `Tile com underscore inválido na posição ${i}: ${tile}` };
