@@ -23,7 +23,7 @@
 import { handleLoginOrCreate } from '../services/authService.js';
 import { getAllTemplates, makeTemplatePacket } from '../services/templateService.js';
 import { makeRecipePacket } from '../services/recipeService.js';
-import { validateAppearanceChanges } from '../constants/appearance.js';
+import { validateAppearanceChanges, hasActivePremium } from '../constants/appearance.js';
 
 /**
  * Cria função roteadora de mensagens
@@ -257,8 +257,8 @@ export function createMessageRouter(env, logger, world) {
         
         const player = session.player;
         
-        // Verifica se o jogador tem premium (premium > 0 significa tem premium ativo)
-        const isPremium = (player.premium || 0) > 0;
+        // Verifica se o jogador tem premium usando função utilitária
+        const isPremium = hasActivePremium(player);
         
         // Prepara objeto com as mudanças solicitadas
         const changes = {};

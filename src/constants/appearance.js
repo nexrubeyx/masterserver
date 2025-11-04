@@ -11,6 +11,12 @@
  * e garante que apenas premium players tenham acesso a itens exclusivos.
  */
 
+// Cores padrão (usadas em múltiplos lugares)
+export const DEFAULT_HAIR_COLOR = 6504471;
+export const DEFAULT_CLOTHES_COLOR = 14540253;
+export const DEFAULT_EYE_COLOR = 9682175;
+export const DEFAULT_NAME_COLOR = 16777215;
+
 /**
  * Roupas (clothes) gratuitas disponíveis para todos
  */
@@ -61,6 +67,9 @@ export const PREMIUM_HAIR = [
 /**
  * Cores gratuitas disponíveis para todos
  * Valores RGB em decimal (0x000000 a 0xFFFFFF = 0 a 16777215)
+ * 
+ * Nota: Algumas cores (como prata/silver) aparecem em ambas as listas
+ * FREE e PREMIUM para permitir acesso mais amplo a cores comuns.
  */
 export const FREE_COLORS = [
   0xFFFFFF,   // Branco
@@ -72,7 +81,7 @@ export const FREE_COLORS = [
   0xFF00FF,   // Magenta
   0x00FFFF,   // Ciano
   0x808080,   // Cinza
-  0xC0C0C0,   // Prata
+  0xC0C0C0,   // Prata (também disponível em premium para flexibilidade)
   0x800000,   // Marrom escuro
   0x808000,   // Oliva
   0x008000,   // Verde escuro
@@ -83,10 +92,10 @@ export const FREE_COLORS = [
   0xFFC0CB,   // Rosa
   0xA52A2A,   // Marrom
   0xD2691E,   // Chocolate
-  6504471,    // Cor padrão cabelo
-  14540253,   // Cor padrão roupa
-  9682175,    // Cor extra 1
-  16777215    // Cor extra 2
+  DEFAULT_HAIR_COLOR,    // Cor padrão cabelo
+  DEFAULT_CLOTHES_COLOR, // Cor padrão roupa
+  DEFAULT_EYE_COLOR,     // Cor padrão olhos
+  DEFAULT_NAME_COLOR     // Cor padrão nome
 ];
 
 /**
@@ -165,6 +174,16 @@ export function isColorAllowed(color, isPremium) {
   if (FREE_COLORS.includes(color)) return true;
   if (isPremium && PREMIUM_COLORS.includes(color)) return true;
   return false;
+}
+
+/**
+ * Verifica se o jogador tem premium ativo
+ * 
+ * @param {Object} player - Objeto do jogador
+ * @returns {boolean} true se o jogador tem premium ativo (premium > 0)
+ */
+export function hasActivePremium(player) {
+  return (player?.premium || 0) > 0;
 }
 
 /**
