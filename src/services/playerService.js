@@ -318,9 +318,9 @@ export class PlayerService {
     }
 
     // === COMPRESSÃO E ENCAPSULAMENTO DO MAPA ===
-    // Estrutura: ZIP → MAP (conforme protocolo original do cliente)
-    // O cliente espera receber um pacote ZIP com dados comprimidos usando LZW
-    // que ao serem descomprimidos com jv.unzip() revelam o pacote MAP
+    // Estrutura: PKG → ZIP → MAP (conforme protocolo original do cliente)
+    // O cliente espera receber um pacote PKG contendo um pacote ZIP com dados 
+    // comprimidos usando LZW que ao serem descomprimidos com jv.unzip() revelam o pacote MAP
     
     // 1. Cria pacote MAP com os dados do mapa
     const mapPacket = { type: 'map', x: player.x, y: player.y, tiles };
@@ -332,8 +332,15 @@ export class PlayerService {
     // 3. Cria pacote ZIP com os dados comprimidos em LZW
     const zipPacket = { type: 'zip', data: compressedMap };
     
-    // Envia o pacote ZIP para o jogador
-    this.world.sendTo(player, zipPacket);
+    // 4. Empacota o ZIP dentro de um PKG (seguindo o padrão do protocolo)
+    const pkgData = [JSON.stringify(zipPacket)];
+    const pkg = {
+      type: 'pkg',
+      data: JSON.stringify(pkgData)
+    };
+    
+    // Envia o pacote PKG contendo o ZIP para o jogador
+    this.world.sendTo(player, pkg);
 
     // Envia objetos animados presentes neste mapa
     sendMapObjectSpawnsToPlayer(player, map, this.world);
