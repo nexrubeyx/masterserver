@@ -38,6 +38,9 @@ npm start
 ## Testes
 Execute os testes automatizados:
 ```bash
+# Testar sistema de templates (lookup de objetos)
+node test-template-lookup.js
+
 # Testar implementação de água profunda
 node test-deep-water.js
 
