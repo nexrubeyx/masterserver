@@ -107,10 +107,18 @@ export function createMessageRouter(env, logger, world) {
           f: env.DEFAULT_CAVE_FLOOR       // Tile de chão padrão
         };
         
-        // 4) Empacota templates e mt em um único pacote pkg
+        // 3.5) Obtém dados de costumes do usuário
+        const costumeData = await getUserCostumeData(session.user._id);
+        const costumePacket = makeCostumeDataPacket({
+          ...session.user,
+          ...costumeData
+        });
+        
+        // 4) Empacota templates, mt e costumes em um único pacote pkg
         const pkgData = [
           ...templatePackets.map(p => JSON.stringify(p)),
-          JSON.stringify(mtPacket)
+          JSON.stringify(mtPacket),
+          JSON.stringify(costumePacket)
         ];
         
         world.sendRaw(ws, {
@@ -146,16 +154,6 @@ export function createMessageRouter(env, logger, world) {
           lh: '',  // Lock hair (string vazia = nada bloqueado)
           lc: ''   // Lock clothes (string vazia = nada bloqueado)
         });
-        
-        // 8.6) Envia dados de costumes do usuário
-        // Obtém dados de costumes
-        const costumeData = await getUserCostumeData(session.user._id);
-        
-        // Envia pacote de costumes
-        world.sendTo(player, makeCostumeDataPacket({
-          ...session.user,
-          ...costumeData
-        }));
         
         // 9) Envia comando de música
         world.sendTo(player, { type: 'music', m: env.DEFAULT_SONG, s: 0 });
@@ -281,17 +279,17 @@ export function createMessageRouter(env, logger, world) {
           // Obtém dados de costumes do usuário
           const costumeData = await getUserCostumeData(user._id);
           
-          // Envia pacote de dados de costumes primeiro
-          world.sendTo(player, makeCostumeDataPacket({
+          // Cria pacote de dados de costumes
+          const costumePacket = makeCostumeDataPacket({
             ...user,
             ...costumeData
-          }));
+          });
           
-          // Envia os pacotes do costume shop (template + fx)
+          // Envia os pacotes do costume shop (template + fx) e costume data juntos em pkg
           const shopPackets = makeCostumeShopPacket(player, user);
           world.sendRaw(ws, {
             type: 'pkg',
-            data: JSON.stringify(shopPackets)
+            data: JSON.stringify([JSON.stringify(costumePacket), ...shopPackets])
           });
           
           return;
