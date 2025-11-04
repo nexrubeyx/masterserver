@@ -1,5 +1,5 @@
 // Registro de templates que o client entende via 'obj_tpl'.
-// Campos: tpl, name, desc, stack, pickup, block, spr (ícone item16), build (opcional).
+// Campos: tpl, name, stack, pickup, block, spr (ícone item16), build (opcional).
 // No 'build': negativos usam atlas de tiles (tile16), positivos usam atlas de itens (item16).
 // Flags: f=foreground, a=anim, b=bloqueia, o|N|=offset vertical, t|RRGGBB|=tint, q|alpha|=opacity, n/s/e/w=offset por tile.
 // ATENÇÃO: ajuste IDs de sprite conforme seus atlases. Abaixo são exemplos.

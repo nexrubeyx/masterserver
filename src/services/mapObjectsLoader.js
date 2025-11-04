@@ -78,7 +78,6 @@ export function sendMapObjectSpawnsToPlayer(player, map, world) {
       player,
       buildAnimatedObjTplPacket(tpl, frameA, frameB, {
         name: s.name || tpl,           // Nome do objeto
-        desc: s.desc || "Animated spawn", // Descrição
         tint: s.tint,                  // Cor de tintura (opcional)
         alpha: s.alpha,                // Transparência (opcional)
         offsetY: s.offsetY,            // Offset vertical (opcional)
