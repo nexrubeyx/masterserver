@@ -102,9 +102,7 @@ export class World {
    * 
    * Usa delta time (dt) para compensar variações no tempo de execução.
    * 
-   * Periodicamente (configurável via POSITION_RECONCILIATION_INTERVAL_MS),
-   * envia reconciliação completa de todas as posições para garantir que
-   * todos os clientes estejam sincronizados.
+   * NOTA: A reconciliação periódica foi desabilitada.
    */
   startGameLoop() {
     // Intervalo do tick em milissegundos (50ms = 20 Hz)
@@ -115,12 +113,6 @@ export class World {
 
     // Inicializa timestamp do último tick
     this._lastTickAt = Date.now();
-    
-    // Timestamp da última reconciliação completa
-    this._lastReconciliationAt = Date.now();
-    
-    // Intervalo de reconciliação completa (configurável, padrão 5 segundos)
-    const RECONCILIATION_INTERVAL_MS = Number(this.env.POSITION_RECONCILIATION_INTERVAL_MS || 5000);
 
     // Cria interval que executa o tick periodicamente
     this._tickTimer = setInterval(() => {
@@ -135,16 +127,12 @@ export class World {
         this.playerService.tickPlayer(player, dt);
       }
       
-      // Periodicamente, envia reconciliação completa de posições
-      // Isso garante que mesmo com pacotes perdidos, eventualmente todos
-      // os clientes terão a visão correta das posições dos jogadores
-      if (now - this._lastReconciliationAt >= RECONCILIATION_INTERVAL_MS) {
-        this._lastReconciliationAt = now;
-        this._reconcileAllPlayerPositions();
-      }
+      // RECONCILIAÇÃO DESABILITADA:
+      // A reconciliação periódica foi desabilitada conforme solicitado.
+      // Anteriormente, enviava broadcasts de todas as posições periodicamente.
     }, TICK_MS);
 
-    this.logger.info({ TICK_MS, RECONCILIATION_INTERVAL_MS }, 'Game loop iniciado com reconciliação periódica');
+    this.logger.info({ TICK_MS }, 'Game loop iniciado (reconciliação desabilitada)');
   }
   
   /**

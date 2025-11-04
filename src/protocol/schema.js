@@ -217,6 +217,28 @@ export const schemaByType = {
       eye_color: { type: 'integer', minimum: 0, maximum: 16777215 }
     },
     additionalProperties: false
+  },
+
+  /**
+   * Mensagem 'c' - Troca de sprite/aparência (simplificada)
+   * Cliente envia com r:"ap" e os campos de aparência
+   * Não valida cores - aceita qualquer valor RGB
+   */
+  c: {
+    type: 'object',
+    required: ['type', 'r'],
+    properties: {
+      type: { const: 'c' },
+      r: { type: 'string', maxLength: 10 },
+      c: { type: 'integer', minimum: 0, maximum: 100 },      // clothes
+      b: { type: 'integer', minimum: 0, maximum: 100 },      // body
+      h: { type: 'integer', minimum: 0, maximum: 100 },      // hair
+      cc: { type: 'integer', minimum: 0, maximum: 16777215 }, // clothes_color
+      hc: { type: 'integer', minimum: 0, maximum: 16777215 }, // hair_color
+      ec: { type: 'integer', minimum: 0, maximum: 16777215 }, // eye_color
+      nc: { type: 'integer', minimum: 0, maximum: 16777215 }  // name_color
+    },
+    additionalProperties: false
   }
 };
 

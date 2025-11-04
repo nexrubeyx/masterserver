@@ -246,6 +246,98 @@ export function createMessageRouter(env, logger, world) {
         return;
       }
 
+      // === SPRITE APPEARANCE CHANGE ===
+      // Troca de sprite/aparência (sem validação de cores)
+      // Cliente envia {"type":"c","r":"ap","c":1,"b":1,"h":1,"cc":14540253,"hc":6504471,"ec":255,"nc":15724527}
+      case 'c': {
+        const session = world.getSession(ws);
+        if (!session) return;  // Sem sessão = não autenticado, ignora
+        
+        const player = session.player;
+        
+        // Verifica se o jogador tem premium usando função utilitária
+        const isPremium = hasActivePremium(player);
+        
+        // Prepara objeto com as mudanças solicitadas (apenas body, hair, clothes)
+        // NÃO valida cores - aceita qualquer valor enviado pelo cliente
+        const changes = {};
+        if (typeof packet.b === 'number') changes.body = packet.b;
+        if (typeof packet.h === 'number') changes.hair = packet.h;
+        if (typeof packet.c === 'number') changes.clothes = packet.c;
+        
+        // Valida apenas body, hair e clothes (não valida cores)
+        const validation = validateAppearanceChanges(changes, isPremium);
+        
+        if (!validation.valid) {
+          // Mudança não permitida - envia erro
+          world.sendTo(player, {
+            type: 'c',
+            r: 'er',
+            msg: validation.reason || 'Invalid appearance change'
+          });
+          return;
+        }
+        
+        // Atualiza aparência do jogador
+        let changed = false;
+        if (changes.body !== undefined) {
+          player.appearance.body = changes.body;
+          changed = true;
+        }
+        if (changes.hair !== undefined) {
+          player.appearance.hair = changes.hair;
+          changed = true;
+        }
+        if (changes.clothes !== undefined) {
+          player.appearance.clothes = changes.clothes;
+          changed = true;
+        }
+        
+        // Atualiza cores diretamente sem validação
+        if (typeof packet.cc === 'number') {
+          player.appearance.clothesColor = packet.cc;
+          changed = true;
+        }
+        if (typeof packet.hc === 'number') {
+          player.appearance.hairColor = packet.hc;
+          changed = true;
+        }
+        if (typeof packet.ec === 'number') {
+          player.appearance.eyeColor = packet.ec;
+          changed = true;
+        }
+        if (typeof packet.nc === 'number') {
+          player.appearance.nameColor = packet.nc;
+          changed = true;
+        }
+        
+        if (changed) {
+          // Salva a aparência no banco de dados
+          world.playerService.persistFullState(player).catch(err => {
+            world.logger.warn({ err: err.message }, 'Failed to persist appearance change');
+          });
+          
+          // Envia resposta de sucesso com aparência completa (formato esperado pelo cliente)
+          world.sendTo(player, {
+            type: 'c',
+            r: 'ap',
+            c: player.appearance.clothes,
+            b: player.appearance.body,
+            h: player.appearance.hair,
+            cc: player.appearance.clothesColor,
+            hc: player.appearance.hairColor,
+            ec: player.appearance.eyeColor,
+            nc: player.appearance.nameColor
+          });
+          
+          // Atualiza template para TODOS os jogadores no mapa (incluindo o próprio jogador)
+          const templatePacket = world.playerService.makePlayerTemplatePacket(player);
+          world.sendToAllInMap(player, templatePacket);
+        }
+        
+        return;
+      }
+
       // === PICKUP ===
       // Jogador tenta coletar um objeto do mundo
 
