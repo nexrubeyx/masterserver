@@ -24,6 +24,9 @@ import { handleLoginOrCreate } from '../services/authService.js';
 import { getAllTemplates, makeTemplatePacket } from '../services/templateService.js';
 import { makeRecipePacket } from '../services/recipeService.js';
 import { validateAppearanceChanges, hasActivePremium } from '../constants/appearance.js';
+import { makeCostumeShopPacket, makeCostumeDataPacket, buyCostume, getCostumeCost } from '../services/costumeService.js';
+import { addCostumeToUser, getUserCostumeData, deductPremiumDays } from '../models/User.js';
+import { MAX_COSTUMES } from '../constants/costume.js';
 
 /**
  * Cria função roteadora de mensagens
@@ -144,6 +147,16 @@ export function createMessageRouter(env, logger, world) {
           lc: ''   // Lock clothes (string vazia = nada bloqueado)
         });
         
+        // 8.6) Envia dados de costumes do usuário
+        // Obtém dados de costumes
+        const costumeData = await getUserCostumeData(session.user._id);
+        
+        // Envia pacote de costumes
+        world.sendTo(player, makeCostumeDataPacket({
+          ...session.user,
+          ...costumeData
+        }));
+        
         // 9) Envia comando de música
         world.sendTo(player, { type: 'music', m: env.DEFAULT_SONG, s: 0 });
 
@@ -246,95 +259,251 @@ export function createMessageRouter(env, logger, world) {
         return;
       }
 
-      // === SPRITE APPEARANCE CHANGE ===
-      // Troca de sprite/aparência (sem validação de cores)
-      // Cliente envia {"type":"c","r":"ap","c":1,"b":1,"h":1,"cc":14540253,"hc":6504471,"ec":255,"nc":15724527}
-      // 
-      // DESIGN DECISION: Este sistema NÃO valida cores intencionalmente.
-      // O cliente pode enviar qualquer cor RGB. Isso é diferente do sistema 'costume'
-      // que valida cores contra FREE_COLORS e PREMIUM_COLORS.
-      // 
-      // Motivo: Flexibilidade para o cliente - o servidor não restringe cores em sprites.
-      // Apenas body, hair e clothes são validados contra listas premium/free.
+      // === COMANDO 'c' - Sistema Multi-propósito ===
+      // Este comando suporta múltiplas operações via campo 'r' (request):
+      // - r: "ap" - Apply appearance (troca de aparência)
+      // - r: "cs" - Costume shop (abre loja de costumes)
+      // - r: "cb" - Costume buy (compra costume)
+      // - r: "cbh" - Costume buy halloween (tenta costume temporariamente)
       case 'c': {
         const session = world.getSession(ws);
         if (!session) return;  // Sem sessão = não autenticado, ignora
         
         const player = session.player;
-        const isPremium = hasActivePremium(player);
-
-        const changes = {};
-        if (typeof packet.b === 'number') changes.body = packet.b;
-        if (typeof packet.h === 'number') changes.hair = packet.h;
-        if (typeof packet.c === 'number') changes.clothes = packet.c;
-        if (typeof packet.cc === 'number') changes.clothesColor = packet.cc;
-        if (typeof packet.hc === 'number') changes.hairColor = packet.hc;
-        if (typeof packet.ec === 'number') changes.eyeColor = packet.ec;
-        if (typeof packet.nc === 'number') changes.nameColor = packet.nc;
-
-        const validation = validateAppearanceChanges(changes, isPremium);
-        if (!validation.valid) {
-          world.sendTo(player, {
-            type: 'c',
-            r: 'er',
-            msg: validation.reason || 'Invalid appearance change'
+        const user = session.user;
+        
+        // Roteamento baseado no tipo de request (campo 'r')
+        const requestType = packet.r;
+        
+        // === COSTUME SHOP REQUEST ===
+        // Cliente solicita abertura da loja de costumes
+        if (requestType === 'cs') {
+          // Obtém dados de costumes do usuário
+          const costumeData = await getUserCostumeData(user._id);
+          
+          // Envia pacote de dados de costumes primeiro
+          world.sendTo(player, makeCostumeDataPacket({
+            ...user,
+            ...costumeData
+          }));
+          
+          // Envia os pacotes do costume shop (template + fx)
+          const shopPackets = makeCostumeShopPacket(player, user);
+          world.sendRaw(ws, {
+            type: 'pkg',
+            data: JSON.stringify(shopPackets)
           });
+          
           return;
         }
         
-        // Atualiza aparência do jogador
-        let changed = false;
-        if (changes.body !== undefined) {
-          player.appearance.body = changes.body;
-          changed = true;
-        }
-        if (changes.hair !== undefined) {
-          player.appearance.hair = changes.hair;
-          changed = true;
-        }
-        if (changes.clothes !== undefined) {
-          player.appearance.clothes = changes.clothes;
-          changed = true;
-        }
-        
-        // Atualiza cores diretamente sem validação
-        if (typeof packet.cc === 'number') {
-          player.appearance.clothesColor = packet.cc;
-          changed = true;
-        }
-        if (typeof packet.hc === 'number') {
-          player.appearance.hairColor = packet.hc;
-          changed = true;
-        }
-        if (typeof packet.ec === 'number') {
-          player.appearance.eyeColor = packet.ec;
-          changed = true;
-        }
-        if (typeof packet.nc === 'number') {
-          player.appearance.nameColor = packet.nc;
-          changed = true;
-        }
-        
-        if (changed) {
-          // Salva a aparência no banco de dados
-          world.playerService.persistFullState(player).catch(err => {
-            world.logger.warn({ err: err.message }, 'Failed to persist appearance change');
+        // === COSTUME BUY REQUEST ===
+        // Cliente tenta comprar um costume
+        if (requestType === 'cb') {
+          const costumeId = Number(packet.c);
+          
+          // Processa compra
+          const result = await buyCostume(user, costumeId);
+          
+          if (!result.success) {
+            // Falha na compra - envia mensagem de erro
+            world.sendTo(player, {
+              type: 'cb',
+              r: result.message,
+              pr: user.premium || 0
+            });
+            return;
+          }
+          
+          // Sucesso - costume 0 = remover costume (não requer compra)
+          if (costumeId === 0) {
+            // Remove costume (reseta sprite para -1 = humano)
+            player.appearance.sprite = -1;
+            
+            // Salva no banco
+            await world.playerService.persistFullState(player);
+            
+            // Envia confirmação
+            world.sendTo(player, {
+              type: 'cb',
+              r: 'Costume removed',
+              pr: user.premium || 0
+            });
+            
+            // Atualiza template e snapshot
+            const templatePacket = world.playerService.makePlayerTemplatePacket(player);
+            world.sendToAllInMap(player, templatePacket);
+            
+            const snapshotPacket = world.playerService.makePlayerSnapshotPacket(player);
+            world.sendTo(player, snapshotPacket);
+            world.sendToOthersInMap(player, snapshotPacket);
+            
+            return;
+          }
+          
+          // Deduz diamantes do usuário
+          const cost = getCostumeCost(costumeId);
+          const newPremium = await deductPremiumDays(user._id, cost);
+          
+          // Adiciona costume ao usuário
+          await addCostumeToUser(user._id, costumeId);
+          
+          // Atualiza dados locais do usuário
+          user.premium = newPremium;
+          
+          // Obtém dados atualizados de costume
+          const costumeData = await getUserCostumeData(user._id);
+          
+          // Aplica costume ao jogador
+          player.appearance.sprite = costumeId;
+          
+          // IMPORTANTE: Para movimento - Para qualquer movimento em andamento para prevenir bugs
+          if (player.moving) {
+            world.playerService.stopMoving(player);
+          }
+          
+          // Salva no banco
+          await world.playerService.persistFullState(player);
+          
+          // Envia confirmação com costume ID e premium atualizado
+          world.sendTo(player, {
+            type: 'cb',
+            b: costumeId,
+            r: `Costume ${costumeId} purchased!`,
+            pr: newPremium
           });
           
+          // Atualiza player.premium também (sincroniza)
+          player.premium = newPremium;
           
-          // Atualiza template para TODOS os jogadores no mapa (incluindo o próprio jogador)
+          // Atualiza template para TODOS os jogadores no mapa
           const templatePacket = world.playerService.makePlayerTemplatePacket(player);
           world.sendToAllInMap(player, templatePacket);
           
-          // Envia snapshot para o próprio jogador primeiro, para que o cliente recrie o personagem
-          // com a nova aparência (similar ao fluxo de login)
+          // Envia snapshot para todos para atualizar visualmente
           const snapshotPacket = world.playerService.makePlayerSnapshotPacket(player);
           world.sendTo(player, snapshotPacket);
-          
-          // Envia snapshot para outros jogadores para que vejam a atualização
           world.sendToOthersInMap(player, snapshotPacket);
+          
+          return;
         }
         
+        // === COSTUME TRY (HALLOWEEN) REQUEST ===
+        // Cliente tenta costume temporariamente (sem comprar)
+        if (requestType === 'cbh') {
+          const costumeId = Number(packet.c);
+          
+          // Valida costume ID
+          if (!Number.isInteger(costumeId) || costumeId < 0 || costumeId > MAX_COSTUMES) {
+            return;
+          }
+          
+          // Aplica costume temporariamente (não salva no banco)
+          player.appearance.sprite = costumeId;
+          
+          // IMPORTANTE: Para movimento - Para qualquer movimento em andamento para prevenir bugs
+          if (player.moving) {
+            world.playerService.stopMoving(player);
+          }
+          
+          // Atualiza template para TODOS os jogadores no mapa
+          const templatePacket = world.playerService.makePlayerTemplatePacket(player);
+          world.sendToAllInMap(player, templatePacket);
+          
+          // Envia snapshot para todos para atualizar visualmente
+          const snapshotPacket = world.playerService.makePlayerSnapshotPacket(player);
+          world.sendTo(player, snapshotPacket);
+          world.sendToOthersInMap(player, snapshotPacket);
+          
+          return;
+        }
+        
+        // === APPLY APPEARANCE REQUEST ===
+        // Troca de aparência tradicional (body, hair, clothes, cores)
+        if (requestType === 'ap') {
+          const isPremium = hasActivePremium(player);
+
+          const changes = {};
+          if (typeof packet.b === 'number') changes.body = packet.b;
+          if (typeof packet.h === 'number') changes.hair = packet.h;
+          if (typeof packet.c === 'number') changes.clothes = packet.c;
+          if (typeof packet.cc === 'number') changes.clothesColor = packet.cc;
+          if (typeof packet.hc === 'number') changes.hairColor = packet.hc;
+          if (typeof packet.ec === 'number') changes.eyeColor = packet.ec;
+          if (typeof packet.nc === 'number') changes.nameColor = packet.nc;
+
+          const validation = validateAppearanceChanges(changes, isPremium);
+          if (!validation.valid) {
+            world.sendTo(player, {
+              type: 'c',
+              r: 'er',
+              msg: validation.reason || 'Invalid appearance change'
+            });
+            return;
+          }
+          
+          // Atualiza aparência do jogador
+          let changed = false;
+          if (changes.body !== undefined) {
+            player.appearance.body = changes.body;
+            changed = true;
+          }
+          if (changes.hair !== undefined) {
+            player.appearance.hair = changes.hair;
+            changed = true;
+          }
+          if (changes.clothes !== undefined) {
+            player.appearance.clothes = changes.clothes;
+            changed = true;
+          }
+          
+          // Atualiza cores diretamente sem validação
+          if (typeof packet.cc === 'number') {
+            player.appearance.clothesColor = packet.cc;
+            changed = true;
+          }
+          if (typeof packet.hc === 'number') {
+            player.appearance.hairColor = packet.hc;
+            changed = true;
+          }
+          if (typeof packet.ec === 'number') {
+            player.appearance.eyeColor = packet.ec;
+            changed = true;
+          }
+          if (typeof packet.nc === 'number') {
+            player.appearance.nameColor = packet.nc;
+            changed = true;
+          }
+          
+          if (changed) {
+            // IMPORTANTE: Para movimento - Para qualquer movimento em andamento para prevenir bugs
+            if (player.moving) {
+              world.playerService.stopMoving(player);
+            }
+            
+            // Salva a aparência no banco de dados
+            world.playerService.persistFullState(player).catch(err => {
+              world.logger.warn({ err: err.message }, 'Failed to persist appearance change');
+            });
+            
+            
+            // Atualiza template para TODOS os jogadores no mapa (incluindo o próprio jogador)
+            const templatePacket = world.playerService.makePlayerTemplatePacket(player);
+            world.sendToAllInMap(player, templatePacket);
+            
+            // Envia snapshot para o próprio jogador primeiro, para que o cliente recrie o personagem
+            // com a nova aparência (similar ao fluxo de login)
+            const snapshotPacket = world.playerService.makePlayerSnapshotPacket(player);
+            world.sendTo(player, snapshotPacket);
+            
+            // Envia snapshot para outros jogadores para que vejam a atualização
+            world.sendToOthersInMap(player, snapshotPacket);
+          }
+          
+          return;
+        }
+        
+        // Tipo de request desconhecido - ignora
         return;
       }
 

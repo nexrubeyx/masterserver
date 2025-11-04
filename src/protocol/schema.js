@@ -220,9 +220,17 @@ export const schemaByType = {
   },
 
   /**
-   * Mensagem 'c' - Troca de sprite/aparência (simplificada)
-   * Cliente envia com r:"ap" e os campos de aparência
-   * Não valida cores - aceita qualquer valor RGB
+   * Mensagem 'c' - Sistema multi-propósito
+   * Cliente envia com r:"ap" para aparência, r:"cs" para costume shop, 
+   * r:"cb" para comprar costume, r:"cbh" para testar costume
+   * 
+   * Campos:
+   * - r: tipo de request (ap, cs, cb, cbh)
+   * - c: clothes (r:ap) OU costume ID (r:cb, r:cbh) - 0-148
+   * - b, h: body, hair (r:ap) - 0-100
+   * - cc, hc, ec, nc: cores (r:ap) - 0-16777215
+   * 
+   * Nota: O limite de 150 para 'c' permite folga para costumes (max 148) e clothes (max 100)
    */
   c: {
     type: 'object',
@@ -230,7 +238,7 @@ export const schemaByType = {
     properties: {
       type: { const: 'c' },
       r: { type: 'string', maxLength: 10 },
-      c: { type: 'integer', minimum: 0, maximum: 100 },      // clothes
+      c: { type: 'integer', minimum: 0, maximum: 150 },      // clothes OU costume ID (0-150)
       b: { type: 'integer', minimum: 0, maximum: 100 },      // body
       h: { type: 'integer', minimum: 0, maximum: 100 },      // hair
       cc: { type: 'integer', minimum: 0, maximum: 16777215 }, // clothes_color
