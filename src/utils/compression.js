@@ -95,7 +95,12 @@ export function compressLZW(e) {
   // a = frase atual sendo construída
   // r = próximo código disponível (começa em 57344)
   // s = índice do loop
-  var t, i = {}, o = (e + "").split(""), n = [], a = o[0], r = LZW_DICT_START_CODE, s;
+  let t, s;
+  const i = {};
+  const o = (e + "").split("");
+  const n = [];
+  let a = o[0];
+  let r = LZW_DICT_START_CODE;
   
   // Processa cada caractere
   for (s = 1; s < o.length; s++) {
