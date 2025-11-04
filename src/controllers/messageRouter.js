@@ -262,6 +262,7 @@ export function createMessageRouter(env, logger, world) {
         
         // Prepara objeto com as mudanças solicitadas
         const changes = {};
+        if (typeof packet.sprite === 'number') changes.sprite = packet.sprite;
         if (typeof packet.body === 'number') changes.body = packet.body;
         if (typeof packet.hair === 'number') changes.hair = packet.hair;
         if (typeof packet.clothes === 'number') changes.clothes = packet.clothes;
@@ -284,6 +285,10 @@ export function createMessageRouter(env, logger, world) {
         
         // Atualiza aparência do jogador com valores validados
         let changed = false;
+        if (changes.sprite !== undefined) {
+          player.appearance.sprite = changes.sprite;
+          changed = true;
+        }
         if (changes.body !== undefined) {
           player.appearance.body = changes.body;
           changed = true;
