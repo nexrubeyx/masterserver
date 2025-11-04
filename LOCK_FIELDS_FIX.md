@@ -104,13 +104,15 @@ Created `test-lock-fields.js` to verify:
 
 Run the test suite:
 ```bash
-# Test lock fields fix
+# Test lock fields fix (test file created but not tracked in git per .gitignore)
 node test-lock-fields.js
 
-# Verify no regressions
+# Verify no regressions (existing tests in repository)
 node test-template-lookup.js
 node test-recipe-service.js
 ```
+
+**Note:** Test files are excluded from git by the repository's .gitignore policy (test-*.js). The test-lock-fields.js file was created to verify this fix locally but is not included in the commit.
 
 All tests pass ✓
 
