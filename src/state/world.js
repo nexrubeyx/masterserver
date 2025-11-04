@@ -102,8 +102,9 @@ export class World {
    * 
    * Usa delta time (dt) para compensar variações no tempo de execução.
    * 
-   * A cada 5 segundos, envia reconciliação completa de todas as posições
-   * para garantir que todos os clientes estejam sincronizados.
+   * Periodicamente (configurável via POSITION_RECONCILIATION_INTERVAL_MS),
+   * envia reconciliação completa de todas as posições para garantir que
+   * todos os clientes estejam sincronizados.
    */
   startGameLoop() {
     // Intervalo do tick em milissegundos (50ms = 20 Hz)
@@ -118,8 +119,8 @@ export class World {
     // Timestamp da última reconciliação completa
     this._lastReconciliationAt = Date.now();
     
-    // Intervalo de reconciliação completa (5 segundos)
-    const RECONCILIATION_INTERVAL_MS = 5000;
+    // Intervalo de reconciliação completa (configurável, padrão 5 segundos)
+    const RECONCILIATION_INTERVAL_MS = Number(this.env.POSITION_RECONCILIATION_INTERVAL_MS || 5000);
 
     // Cria interval que executa o tick periodicamente
     this._tickTimer = setInterval(() => {
@@ -134,7 +135,7 @@ export class World {
         this.playerService.tickPlayer(player, dt);
       }
       
-      // A cada 5 segundos, envia reconciliação completa de posições
+      // Periodicamente, envia reconciliação completa de posições
       // Isso garante que mesmo com pacotes perdidos, eventualmente todos
       // os clientes terão a visão correta das posições dos jogadores
       if (now - this._lastReconciliationAt >= RECONCILIATION_INTERVAL_MS) {
@@ -173,6 +174,9 @@ export class World {
       if (playersInMap.length === 0) continue;
       
       // Monta o pacote 'pl' com todos os jogadores do mapa
+      // NOTA: O protocolo do cliente espera que 'data' seja um array de STRINGS JSON,
+      // não um array de objetos. Por isso, JSON.stringify() é chamado para cada
+      // snapshot individualmente. Isto é correto e esperado pelo cliente.
       const plData = playersInMap.map((p) => {
         const snap = this.playerService.makePlayerSnapshotPacket(p);
         return JSON.stringify(snap);

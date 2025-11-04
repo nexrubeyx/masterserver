@@ -42,6 +42,9 @@ export class SecurityService {
     
     // Tolerância para coordenadas cliente/servidor (compensar lag)
     this.coordTolerance = Number(env.SECURITY_COORD_TOLERANCE || 2);
+    
+    // Limite de distância para registrar violação significativa (evita spam de logs)
+    this.significantViolationThreshold = Number(env.SECURITY_SIGNIFICANT_VIOLATION_THRESHOLD || 2);
   }
 
   /**
@@ -224,11 +227,12 @@ export class SecurityService {
       return { valid: true, needsCorrection: false };
     }
 
-    // Se há qualquer diferença, precisa correção
+    // Se há qualquer diferença além da tolerância, precisa correção
+    // Com tolerância 0, qualquer diferença (distance > 0) resulta em needsCorrection = true
     if (distance > tolerance) {
-      // Registra violação apenas se exceder tolerância significativa (> 2 tiles)
-      // Isso evita spam de logs para pequenas diferenças de lag
-      if (distance > 2) {
+      // Registra violação apenas se exceder limite significativo
+      // Isso evita spam de logs para pequenas diferenças causadas por lag
+      if (distance > this.significantViolationThreshold) {
         this._recordViolation(player, 'dessincronia', {
           client: { x: clientX, y: clientY },
           server: { x: serverX, y: serverY },
