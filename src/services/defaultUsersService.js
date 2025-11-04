@@ -89,7 +89,7 @@ async function ensureDefaultUser(env, logger, userConfig) {
       logger.info({ username, premium }, 'Premium do usuário padrão atualizado');
     }
     
-    if (!existingUser.permission || existingUser.permission === permission) {
+    if (existingUser.permission === permission) {
       logger.debug({ username }, 'Usuário padrão já existe');
     }
     return;

@@ -71,11 +71,10 @@ export const PREMIUM_HAIR = [
  * 
  * Nota: -1 é o valor especial que indica "humanoide" (usa body/hair/clothes)
  */
-export const AVAILABLE_SPRITES = [];
-// Gera array de 1 a 148 para todos os costumes disponíveis
-for (let i = 1; i <= 148; i++) {
-  AVAILABLE_SPRITES.push(i);
-}
+export const AVAILABLE_SPRITES = Array.from({length: 148}, (_, i) => i + 1);
+
+// Set para validação eficiente O(1) em vez de O(n) com includes()
+const AVAILABLE_SPRITES_SET = new Set(AVAILABLE_SPRITES);
 
 /**
  * Cores gratuitas disponíveis para todos
@@ -209,8 +208,8 @@ export function isColorAllowed(color, isPremium) {
 export function isSpriteAllowed(sprite, isPremium) {
   // -1 é sempre permitido (humanoide)
   if (sprite === -1) return true;
-  // Verifica se está na lista de sprites disponíveis
-  return AVAILABLE_SPRITES.includes(sprite);
+  // Verifica se está na lista de sprites disponíveis usando Set para O(1)
+  return AVAILABLE_SPRITES_SET.has(sprite);
 }
 
 /**
