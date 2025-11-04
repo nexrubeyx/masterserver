@@ -287,7 +287,7 @@ export function createMessageRouter(env, logger, world) {
           
           // Envia os pacotes do costume shop (template + fx) e costume data juntos em pkg
           const shopPackets = makeCostumeShopPacket(player, user);
-          // shopPackets já contém strings JSON, então costumePacket também precisa ser stringify'd
+          // shopPackets já contém strings JSON, então costumePacket também precisa ser stringified
           world.sendRaw(ws, {
             type: 'pkg',
             data: JSON.stringify([...shopPackets, JSON.stringify(costumePacket)])
