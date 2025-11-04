@@ -17,7 +17,8 @@ export function registerTemplates(newTemplates) {
   // Evita duplicatas - só adiciona se não existir em templates estáticos ou adicionais
   for (const newTpl of newTemplates) {
     // Validação básica de campos obrigatórios
-    if (!newTpl.tpl || typeof newTpl.tpl !== 'string') {
+    // Aceita tanto strings quanto números para tpl (consistente com findTemplate)
+    if (!newTpl.tpl || (typeof newTpl.tpl !== 'string' && typeof newTpl.tpl !== 'number')) {
       console.warn('registerTemplates: Template sem ID válido ignorado:', newTpl);
       continue;
     }

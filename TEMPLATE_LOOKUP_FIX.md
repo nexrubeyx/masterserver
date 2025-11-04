@@ -137,7 +137,7 @@ Para evitar que o problema volte:
 
 ## Referências
 
-- Issue original: "por que o cleint da esse erro... Cannot read properties of undefined (reading 'name')"
+- Issue original: "por que o client da esse erro... Cannot read properties of undefined (reading 'name')"
 - Arquivos relacionados:
   - `src/models/objectTemplates.js` - Definições de templates
   - `src/services/templateService.js` - Sistema de templates
