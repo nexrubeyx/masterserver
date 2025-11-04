@@ -80,11 +80,13 @@ After authentication, the server sends:
 {
   type: 'game',
   pr: player.premium || 0,  // Premium days
-  lb: 0,  // Lock body (0 = unlocked)
-  lh: 0,  // Lock hair (0 = unlocked)
-  lc: 0   // Lock clothes (0 = unlocked)
+  lb: '',  // Lock body (empty string = nothing locked)
+  lh: '',  // Lock hair (empty string = nothing locked)
+  lc: ''   // Lock clothes (empty string = nothing locked)
 }
 ```
+
+**Note:** Lock fields must be strings (not numbers) because the client uses `indexOf()` to check for locked items. An empty string means nothing is locked. To lock specific items, use a comma-separated string like `'1,5,10'`.
 
 This packet is expected by the client to enable premium features.
 
