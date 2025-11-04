@@ -258,7 +258,7 @@ export function createMessageRouter(env, logger, world) {
         
         // Verifica se o jogador tem premium ou não é guest
         const isPremium = player.premium > 0;
-        const isNotGuest = player.level >= 1 && player.name.indexOf('guest-') === -1;
+        const isNotGuest = player.level >= 1 && !player.name.startsWith('guest-');
         
         if (!isPremium && !isNotGuest) {
           // Jogador não tem permissão para trocar de roupa
@@ -300,7 +300,7 @@ export function createMessageRouter(env, logger, world) {
         if (changed) {
           // Salva a aparência no banco de dados
           world.playerService.persistFullState(player).catch(err => {
-            logger.warn({ err: err.message }, 'Failed to persist appearance change');
+            world.logger.warn({ err: err.message }, 'Failed to persist appearance change');
           });
           
           // Envia confirmação para o jogador
