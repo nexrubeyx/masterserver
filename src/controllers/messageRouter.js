@@ -23,6 +23,7 @@
 import { handleLoginOrCreate } from '../services/authService.js';
 import { getAllTemplates, makeTemplatePacket } from '../services/templateService.js';
 import { makeRecipePacket } from '../services/recipeService.js';
+import { validateAppearanceChanges, hasActivePremium } from '../constants/appearance.js';
 
 /**
  * Cria função roteadora de mensagens
@@ -256,43 +257,55 @@ export function createMessageRouter(env, logger, world) {
         
         const player = session.player;
         
-        // Verifica se o jogador tem premium acima de 1
-        const isPremium = player.premium > 1;
+        // Verifica se o jogador tem premium usando função utilitária
+        const isPremium = hasActivePremium(player);
         
-        if (!isPremium) {
-          // Jogador não tem permissão para trocar de roupa
+        // Prepara objeto com as mudanças solicitadas
+        const changes = {};
+        if (typeof packet.body === 'number') changes.body = packet.body;
+        if (typeof packet.hair === 'number') changes.hair = packet.hair;
+        if (typeof packet.clothes === 'number') changes.clothes = packet.clothes;
+        if (typeof packet.hair_color === 'number') changes.hairColor = packet.hair_color;
+        if (typeof packet.clothes_color === 'number') changes.clothesColor = packet.clothes_color;
+        if (typeof packet.eye_color === 'number') changes.eyeColor = packet.eye_color;
+        
+        // Valida se as mudanças são permitidas
+        const validation = validateAppearanceChanges(changes, isPremium);
+        
+        if (!validation.valid) {
+          // Mudança não permitida - envia erro
           world.sendTo(player, {
-            type: 'cb',
-            r: 'Premium required to change appearance (need more than 1 day)',
-            pr: player.premium || 0
+            type: 'c',
+            r: 'er',
+            msg: validation.reason || 'Invalid appearance change'
           });
           return;
         }
         
-        // Atualiza aparência do jogador
+        // Atualiza aparência do jogador com valores validados
         let changed = false;
-        if (typeof packet.body === 'number') {
-          player.appearance.body = packet.body;
+        if (changes.body !== undefined) {
+          player.appearance.body = changes.body;
           changed = true;
         }
-        if (typeof packet.hair === 'number') {
-          player.appearance.hair = packet.hair;
+        if (changes.hair !== undefined) {
+          player.appearance.hair = changes.hair;
           changed = true;
         }
-        if (typeof packet.clothes === 'number') {
-          player.appearance.clothes = packet.clothes;
+        if (changes.clothes !== undefined) {
+          player.appearance.clothes = changes.clothes;
           changed = true;
         }
-        if (typeof packet.hair_color === 'number') {
-          player.appearance.hairColor = packet.hair_color;
+        if (changes.hairColor !== undefined) {
+          player.appearance.hairColor = changes.hairColor;
           changed = true;
         }
-        if (typeof packet.clothes_color === 'number') {
-          player.appearance.clothesColor = packet.clothes_color;
+        if (changes.clothesColor !== undefined) {
+          player.appearance.clothesColor = changes.clothesColor;
           changed = true;
         }
-        if (typeof packet.eye_color === 'number') {
-          player.appearance.eyeColor = packet.eye_color;
+        if (changes.eyeColor !== undefined) {
+          player.appearance.eyeColor = changes.eyeColor;
           changed = true;
         }
         
@@ -302,14 +315,20 @@ export function createMessageRouter(env, logger, world) {
             world.logger.warn({ err: err.message }, 'Failed to persist appearance change');
           });
           
-          // Envia confirmação para o jogador
+          // Envia resposta de sucesso com aparência completa (formato esperado pelo cliente)
           world.sendTo(player, {
-            type: 'cb',
-            r: 'Appearance changed successfully',
-            pr: player.premium || 0
+            type: 'c',
+            r: 'ap',
+            c: player.appearance.clothes,
+            b: player.appearance.body,
+            h: player.appearance.hair,
+            cc: player.appearance.clothesColor,
+            hc: player.appearance.hairColor,
+            ec: player.appearance.eyeColor,
+            nc: player.appearance.nameColor
           });
           
-          // Atualiza template para todos os jogadores no mapa
+          // Atualiza template para TODOS os jogadores no mapa (incluindo o próprio jogador)
           const templatePacket = world.playerService.makePlayerTemplatePacket(player);
           world.sendToAllInMap(player, templatePacket);
         }
