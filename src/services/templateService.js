@@ -64,10 +64,10 @@ export function sendTemplate(ws, t) {
     type: "obj_tpl",
     tpl: t.tpl,
     name: t.name,
+    spr: t.spr,
     stack: Number(!!t.stack),
     pickup: Number(!!t.pickup),
-    block: Number(!!t.block),
-    spr: t.spr
+    block: Number(!!t.block)
   };
   
   // Only include build if it has a value
