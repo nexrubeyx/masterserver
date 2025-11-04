@@ -21,7 +21,7 @@
  */
 
 import { handleLoginOrCreate } from '../services/authService.js';
-import { sendAllTemplates } from '../services/templateService.js';
+import { getAllTemplates, makeTemplatePacket } from '../services/templateService.js';
 
 /**
  * Cria função roteadora de mensagens
@@ -85,18 +85,12 @@ export function createMessageRouter(env, logger, world) {
           tile: {}                       // Tiles especiais (vazio por enquanto)
         });
 
-        // 2) Envia todos os templates de objetos
-        // Isso garante que o cliente tenha o dicionário de objetos disponível
-        sendAllTemplates(ws);
-
-        // 3) Envia template e snapshot do próprio jogador
-        // Template define aparência visual
-        world.sendTo(player, world.playerService.makePlayerTemplatePacket(player));
-        // Snapshot define posição e estado atual
-        world.sendTo(player, world.playerService.makePlayerSnapshotPacket(player));
-
-        // 4) Envia informações do mapa (mt = map transition)
-        world.sendTo(player, {
+        // 2) Cria pacotes de templates e mapa para enviar em pkg
+        const allTemplates = getAllTemplates();
+        const templatePackets = allTemplates.map(t => makeTemplatePacket(t));
+        
+        // 3) Cria pacote de informações do mapa (mt = map transition)
+        const mtPacket = {
           type: 'mt',
           s: 1,                           // Status (1 = sucesso)
           m: env.DEFAULT_SONG,            // Música do mapa
@@ -106,22 +100,39 @@ export function createMessageRouter(env, logger, world) {
           n: m.id,                        // Nome/ID do mapa
           c: env.DEFAULT_CAVE_WALL,       // Tile de parede padrão
           f: env.DEFAULT_CAVE_FLOOR       // Tile de chão padrão
+        };
+        
+        // 4) Empacota templates e mt em um único pacote pkg
+        const pkgData = [
+          ...templatePackets.map(p => JSON.stringify(p)),
+          JSON.stringify(mtPacket)
+        ];
+        
+        world.sendRaw(ws, {
+          type: 'pkg',
+          data: JSON.stringify(pkgData)
         });
 
-        // 5) Força envio do primeiro viewport (tiles visíveis)
+        // 5) Envia template e snapshot do próprio jogador
+        // Template define aparência visual
+        world.sendTo(player, world.playerService.makePlayerTemplatePacket(player));
+        // Snapshot define posição e estado atual
+        world.sendTo(player, world.playerService.makePlayerSnapshotPacket(player));
+
+        // 6) Força envio do primeiro viewport (tiles visíveis)
         player._lastViewOX = undefined;
         player._lastViewOY = undefined;
         world.playerService.markViewportDirty(player);
         world.playerService.flushViewportIfDirty(player, Date.now());
 
  
-        // 6) Envia inventário inicial (vazio)
+        // 7) Envia inventário inicial (vazio)
         world.sendTo(player, { type: 'inv', data: [] });
         
-        // 7) Envia comando de música
+        // 8) Envia comando de música
         world.sendTo(player, { type: 'music', m: env.DEFAULT_SONG, s: 0 });
 
-        // 8) >>> CRÍTICO: Sincroniza presença com outros jogadores
+        // 9) >>> CRÍTICO: Sincroniza presença com outros jogadores
         // Notifica outros jogadores sobre o novo jogador E
         // Notifica o novo jogador sobre os outros já presentes
         world.syncPresence(player);

@@ -55,12 +55,12 @@ export function getAllTemplates() {
 }
 
 /**
- * Envia um template para o cliente
+ * Cria um pacote de template (sem enviar)
  * 
- * @param {WebSocket} ws - Conexão WebSocket do cliente
- * @param {Object} t - Template a enviar
+ * @param {Object} t - Template
+ * @returns {Object} Pacote obj_tpl
  */
-export function sendTemplate(ws, t) {
+export function makeTemplatePacket(t) {
   const packet = {
     type: "obj_tpl",
     tpl: t.tpl,
@@ -76,6 +76,17 @@ export function sendTemplate(ws, t) {
     packet.build = t.build;
   }
   
+  return packet;
+}
+
+/**
+ * Envia um template para o cliente
+ * 
+ * @param {WebSocket} ws - Conexão WebSocket do cliente
+ * @param {Object} t - Template a enviar
+ */
+export function sendTemplate(ws, t) {
+  const packet = makeTemplatePacket(t);
   ws.send(JSON.stringify(packet));
 }
 
