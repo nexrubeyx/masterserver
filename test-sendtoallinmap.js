@@ -70,6 +70,27 @@ try {
   console.error('Error calling sendToAllInMap:', e.message);
 }
 
+// Test 7: Method handles null player gracefully
+try {
+  const mockPacket = { type: 'test', data: 'test' };
+  worldInstance.sendToAllInMap(null, mockPacket);
+  test('sendToAllInMap handles null player gracefully', true);
+} catch (e) {
+  test('sendToAllInMap handles null player gracefully', false);
+  console.error('Error with null player:', e.message);
+}
+
+// Test 8: Method handles player without mapId gracefully
+try {
+  const mockPlayer = { sessionId: '1001' };  // No mapId
+  const mockPacket = { type: 'test', data: 'test' };
+  worldInstance.sendToAllInMap(mockPlayer, mockPacket);
+  test('sendToAllInMap handles player without mapId gracefully', true);
+} catch (e) {
+  test('sendToAllInMap handles player without mapId gracefully', false);
+  console.error('Error with player without mapId:', e.message);
+}
+
 // Summary
 console.log(`\n=== Test Summary ===`);
 console.log(`Passed: ${passCount}`);

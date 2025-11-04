@@ -684,7 +684,13 @@ const poofedTemplate = {
    * @param {Object} obj - Objeto a enviar
    */
   sendToAllInMap(player, obj) {
+    // Valida se o player tem mapId
+    if (!player || !player.mapId) return;
+    
     for (const [ws, session] of this.sessions) {
+      // Verifica se a sessão e o jogador são válidos
+      if (!session || !session.player) continue;
+      
       // Verifica se está no mesmo mapa
       if (session.player.mapId === player.mapId) {
         this.sendRaw(ws, obj);
