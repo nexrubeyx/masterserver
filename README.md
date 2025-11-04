@@ -5,6 +5,10 @@ Implementa autenticação (login/guest), mapa em JSON com vizinhos (transição 
 
 ## Características
 - **Autenticação**: Login com credenciais ou guest mode
+- **Sistema de Premium**: Sistema de premium baseado em dias com funcionalidades exclusivas
+  - Troca de roupa/aparência para usuários premium ou não-guest
+  - Controle de dias de premium com expiração automática
+  - Persistência de aparência customizada
 - **Mapas JSON**: Mapas editáveis em formato JSON com versionamento
 - **Templates de Objetos**: Sistema de templates dinâmico com suporte a templates por mapa
 - **Colocação de Objetos**: Sistema de objectPlacements para popular mapas com objetos estáticos em coordenadas específicas
@@ -14,6 +18,7 @@ Implementa autenticação (login/guest), mapa em JSON com vizinhos (transição 
   - Correção imediata de dessincronia
   - Reconciliação periódica automática
   - Zero bugs de visão ou posições inconsistentes
+  - Dados completos do jogador incluindo dx, dy para offsets visuais
 - **Sistema de Validação de Tiles**: Tiles não-andáveis e modificadores de velocidade
   - Tiles que bloqueiam movimento (ex: montanhas, muros)
   - Tiles que modificam velocidade (buff/debuff - ex: estradas, lama)
@@ -67,9 +72,16 @@ node test-tile-system.js
 
 # Testar sincronização de posições de jogadores
 node test-position-sync.js
+
+# Testar sistema de premium
+node test-premium-system.js
+
+# Testar protocolo de premium e costume
+node test-protocol-premium.js
 ```
 
 ## Documentação Adicional
+- `PREMIUM_SYSTEM_IMPLEMENTATION.md` - Sistema de premium e troca de roupas
 - `POSITION_SYNC_IMPLEMENTATION.md` - Sistema de sincronização de posições com strict server authority
 - `TILE_VALIDATION_SPEED_SYSTEM.md` - Sistema de validação de tiles e modificadores de velocidade
 - `TEMPLATES_DOCUMENTATION.md` - Sistema completo de templates de objetos
