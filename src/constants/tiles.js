@@ -14,6 +14,13 @@
  * messages for the client's edge blending and animation to work correctly.
  */
 
+// === PLAYER MOVEMENT CONSTANTS ===
+/**
+ * Default player movement speed in milliseconds per tile
+ * Used as fallback when player speed is not set or invalid
+ */
+export const DEFAULT_PLAYER_SPEED = 750;
+
 // === SHALLOW WATER TILES ===
 // Category 1 in client's get_edge/tile_sprite
 export const SHALLOW_WATER_1 = 36;
@@ -129,6 +136,10 @@ export const TILE_SPEED_MODIFIERS = new Map([
  * @returns {number} Speed multiplier (1.0 = normal speed)
  */
 export function getTileSpeedModifier(tileId) {
+  // Handle invalid input gracefully
+  if (!Number.isFinite(tileId)) {
+    return 1.0;
+  }
   return TILE_SPEED_MODIFIERS.get(tileId) || 1.0;
 }
 
@@ -143,6 +154,14 @@ export function getTileSpeedModifier(tileId) {
  *       Higher speed multiplier = faster movement = LESS time per tile
  */
 export function getModifiedSpeed(baseSpeed, tileId) {
+  // Validate inputs
+  if (!Number.isFinite(baseSpeed) || baseSpeed <= 0) {
+    baseSpeed = DEFAULT_PLAYER_SPEED;
+  }
+  if (!Number.isFinite(tileId)) {
+    return baseSpeed;
+  }
+  
   const multiplier = getTileSpeedModifier(tileId);
   // Divide by multiplier because:
   // - If multiplier is 2.0 (faster), speed should be halved (less time per tile)

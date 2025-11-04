@@ -22,7 +22,7 @@
 import { savePlayerPosition } from '../models/Player.js';
 import { savePlayerState } from '../models/PlayerState.js';
 import { sendMapObjectSpawnsToPlayer, sendMapObjectPlacementsToPlayer } from './mapObjectsLoader.js';
-import { isDeepWater, isWalkable, getModifiedSpeed } from '../constants/tiles.js';
+import { isDeepWater, isWalkable, getModifiedSpeed, DEFAULT_PLAYER_SPEED } from '../constants/tiles.js';
 import { compressLZW } from '../utils/compression.js';
 
 export class PlayerService {
@@ -425,7 +425,7 @@ export class PlayerService {
     player._accumMs = (player._accumMs || 0) + dt;
     
     // Tempo necessário para um passo (mínimo 20ms para evitar problemas)
-    const stepMs = Math.max(20, player.speed || 750);
+    const stepMs = Math.max(20, player.speed || DEFAULT_PLAYER_SPEED);
 
     // Flag para saber se houve movimento neste tick
     let moved = false;
@@ -503,10 +503,10 @@ export class PlayerService {
       // This affects the next movement step
       const currentTile = map.tiles[player.y]?.[player.x];
       if (Number.isFinite(currentTile)) {
-        const modifiedSpeed = getModifiedSpeed(player.baseSpeed || 750, currentTile);
+        const modifiedSpeed = getModifiedSpeed(player.baseSpeed || DEFAULT_PLAYER_SPEED, currentTile);
         // Store both base speed and current modified speed
         if (!player.baseSpeed) {
-          player.baseSpeed = player.speed || 750;
+          player.baseSpeed = player.speed || DEFAULT_PLAYER_SPEED;
         }
         player.speed = modifiedSpeed;
         
