@@ -80,7 +80,7 @@ export function createMessageRouter(env, logger, world) {
         // 1) Envia pacote 'accepted' - confirma login bem-sucedido
         world.sendRaw(ws, {
           type: 'accepted',
-          id: String(player.sessionId),  // ID da sessão (único)
+          id: Number(player.sessionId),  // ID da sessão (único)
           name: player.name,             // Nome do personagem
           mw: m.width,                   // Largura do mapa
           mh: m.height,                  // Altura do mapa
