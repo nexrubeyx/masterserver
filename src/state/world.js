@@ -691,8 +691,8 @@ const poofedTemplate = {
       // Verifica se a sessão e o jogador são válidos
       if (!session || !session.player) continue;
       
-      // Verifica se está no mesmo mapa
-      if (session.player.mapId === player.mapId) {
+      // Verifica se está no mesmo mapa (com validação de mapId)
+      if (session.player.mapId && session.player.mapId === player.mapId) {
         this.sendRaw(ws, obj);
       }
     }
