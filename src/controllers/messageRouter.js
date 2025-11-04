@@ -256,15 +256,14 @@ export function createMessageRouter(env, logger, world) {
         
         const player = session.player;
         
-        // Verifica se o jogador tem premium ou não é guest
-        const isPremium = player.premium > 0;
-        const isNotGuest = player.level >= 1 && !player.name.startsWith('guest-');
+        // Verifica se o jogador tem premium acima de 1
+        const isPremium = player.premium > 1;
         
-        if (!isPremium && !isNotGuest) {
+        if (!isPremium) {
           // Jogador não tem permissão para trocar de roupa
           world.sendTo(player, {
             type: 'cb',
-            r: 'Premium required to change appearance',
+            r: 'Premium required to change appearance (need more than 1 day)',
             pr: player.premium || 0
           });
           return;
