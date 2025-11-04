@@ -133,6 +133,16 @@ export function createMessageRouter(env, logger, world) {
         // 8) Envia inventário inicial (vazio)
         world.sendTo(player, { type: 'inv', data: [] });
         
+        // 8.5) Envia pacote 'game' com informações de premium e locks de costume
+        // Este pacote é esperado pelo cliente para habilitar funcionalidades premium
+        world.sendTo(player, {
+          type: 'game',
+          pr: player.premium || 0,  // Dias de premium
+          lb: 0,  // Lock body (0 = desbloqueado)
+          lh: 0,  // Lock hair (0 = desbloqueado)
+          lc: 0   // Lock clothes (0 = desbloqueado)
+        });
+        
         // 9) Envia comando de música
         world.sendTo(player, { type: 'music', m: env.DEFAULT_SONG, s: 0 });
 
@@ -237,6 +247,76 @@ export function createMessageRouter(env, logger, world) {
 
       // === PICKUP ===
       // Jogador tenta coletar um objeto do mundo
+
+      // === COSTUME CHANGE ===
+      // Jogador tenta trocar de roupa/aparência
+      case 'costume': {
+        const session = world.getSession(ws);
+        if (!session) return;  // Sem sessão = não autenticado, ignora
+        
+        const player = session.player;
+        
+        // Verifica se o jogador tem premium ou não é guest
+        const isPremium = player.premium > 0;
+        const isNotGuest = player.level >= 1 && !player.name.startsWith('guest-');
+        
+        if (!isPremium && !isNotGuest) {
+          // Jogador não tem permissão para trocar de roupa
+          world.sendTo(player, {
+            type: 'cb',
+            r: 'Premium required to change appearance',
+            pr: player.premium || 0
+          });
+          return;
+        }
+        
+        // Atualiza aparência do jogador
+        let changed = false;
+        if (typeof packet.body === 'number') {
+          player.appearance.body = packet.body;
+          changed = true;
+        }
+        if (typeof packet.hair === 'number') {
+          player.appearance.hair = packet.hair;
+          changed = true;
+        }
+        if (typeof packet.clothes === 'number') {
+          player.appearance.clothes = packet.clothes;
+          changed = true;
+        }
+        if (typeof packet.hair_color === 'number') {
+          player.appearance.hairColor = packet.hair_color;
+          changed = true;
+        }
+        if (typeof packet.clothes_color === 'number') {
+          player.appearance.clothesColor = packet.clothes_color;
+          changed = true;
+        }
+        if (typeof packet.eye_color === 'number') {
+          player.appearance.eyeColor = packet.eye_color;
+          changed = true;
+        }
+        
+        if (changed) {
+          // Salva a aparência no banco de dados
+          world.playerService.persistFullState(player).catch(err => {
+            world.logger.warn({ err: err.message }, 'Failed to persist appearance change');
+          });
+          
+          // Envia confirmação para o jogador
+          world.sendTo(player, {
+            type: 'cb',
+            r: 'Appearance changed successfully',
+            pr: player.premium || 0
+          });
+          
+          // Atualiza template para todos os jogadores no mapa
+          const templatePacket = world.playerService.makePlayerTemplatePacket(player);
+          world.sendToAllInMap(player, templatePacket);
+        }
+        
+        return;
+      }
 
       // === TIPO DESCONHECIDO ===
       // Não deve acontecer pois schema já validou, mas por segurança ignora
