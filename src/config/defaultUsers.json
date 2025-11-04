@@ -4,13 +4,15 @@
     "username": "admin",
     "password": "123",
     "email": "admin@localhost",
-    "permission": 4
+    "permission": 4,
+    "premium": 9999999
   },
   {
     "__comment": "Permission levels: 1=PLAYER, 2=CM, 3=GM, 4=MASTER",
     "username": "tester",
     "password": "123",
     "email": "tester@localhost",
-    "permission": 1
+    "permission": 1,
+    "premium": 9999999
   }
 ]
