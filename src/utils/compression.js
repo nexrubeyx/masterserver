@@ -74,66 +74,55 @@ const MIN_SIZE_FOR_COMPRESSION = 50;  // Tamanho mínimo para considerar compres
 /**
  * Comprime string usando algoritmo LZW compatível com jv.unzip
  * 
- * @param {string} uncompressed - String para comprimir (ex: "0:0:0:1:1:1")
- * @returns {string} String comprimida compatível com jv.unzip
+ * Esta implementação usa o mesmo algoritmo do cliente (jv.zip):
+ * function(e) {
+ *     for (var t, i = {}, o = (e + "").split(""), n = [], a = o[0], r = 57344, s = 1; s < o.length; s++) 
+ *         null != i[a + (t = o[s])] ? a += t : (n.push(1 < a.length ? i[a] : a.charCodeAt(0)), i[a + t] = r, r++, a = t);
+ *     n.push(1 < a.length ? i[a] : a.charCodeAt(0));
+ *     for (s = 0; s < n.length; s++) n[s] = String.fromCharCode(n[s]);
+ *     return n.join("")
+ * }
  * 
- * Algoritmo:
- * 1. Começa com dicionário vazio
- * 2. Lê caracteres e busca sequências no dicionário
- * 3. Quando encontra sequência nova, adiciona ao dicionário com código >= 57344
- * 4. Emite código para sequência conhecida
+ * @param {string} e - String para comprimir (ex: "0:0:0:1:1:1")
+ * @returns {string} String comprimida compatível com jv.unzip
  */
-export function compressLZW(uncompressed) {
-  // Dicionário de frases já vistas: frase -> código
-  const dict = {};
-  
-  // Converte input em array de caracteres
-  const data = (uncompressed + '').split('');
-  
-  // Array de saída (códigos de caractere)
-  const output = [];
-  
-  // Variáveis de estado
-  let currChar = data[0];
-  let phrase = currChar;
-  let code = LZW_DICT_START_CODE; // Código inicial para dicionário (igual ao cliente)
+export function compressLZW(e) {
+  // Variáveis do algoritmo (mantendo nomes do cliente para compatibilidade):
+  // t = caractere temporário
+  // i = dicionário (frase -> código)
+  // o = array de caracteres do input
+  // n = array de saída (códigos)
+  // a = frase atual sendo construída
+  // r = próximo código disponível (começa em 57344)
+  // s = índice do loop
+  var t, i = {}, o = (e + "").split(""), n = [], a = o[0], r = LZW_DICT_START_CODE, s;
   
   // Processa cada caractere
-  for (let i = 1; i < data.length; i++) {
-    currChar = data[i];
-    const temp = phrase + currChar;
-    
-    if (dict[temp] != null) {
+  for (s = 1; s < o.length; s++) {
+    t = o[s];
+    if (null != i[a + t]) {
       // Sequência já existe no dicionário, continua construindo
-      phrase = temp;
+      a += t;
     } else {
       // Sequência nova - emite código da frase atual
-      if (phrase.length > 1) {
-        // Frase do dicionário (código >= 57344)
-        output.push(dict[phrase]);
-      } else {
-        // Caractere único (código < 57344)
-        output.push(phrase.charCodeAt(0));
-      }
-      
+      n.push(1 < a.length ? i[a] : a.charCodeAt(0));
       // Adiciona nova sequência ao dicionário
-      dict[temp] = code;
-      code++;
-      
+      i[a + t] = r;
+      r++;
       // Reinicia com caractere atual
-      phrase = currChar;
+      a = t;
     }
   }
   
   // Emite última frase
-  if (phrase.length > 1) {
-    output.push(dict[phrase]);
-  } else {
-    output.push(phrase.charCodeAt(0));
-  }
+  n.push(1 < a.length ? i[a] : a.charCodeAt(0));
   
   // Converte códigos em string
-  return output.map(c => String.fromCharCode(c)).join('');
+  for (s = 0; s < n.length; s++) {
+    n[s] = String.fromCharCode(n[s]);
+  }
+  
+  return n.join("");
 }
 
 /**
