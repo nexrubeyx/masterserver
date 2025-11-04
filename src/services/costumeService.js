@@ -6,6 +6,7 @@
  */
 
 import { addCostumeToUser, getUserCostumeData } from '../models/User.js';
+import { MAX_COSTUMES } from '../constants/costume.js';
 
 /**
  * Configuração de costumes
@@ -39,8 +40,6 @@ const COSTUME_COSTS = {
   131: 60, 132: 70, 133: 80, 134: 90, 135: 100, 136: 80, 137: 90, 138: 100, 139: 80, 140: 90,
   141: 60, 142: 70, 143: 80, 144: 90, 145: 100, 146: 80, 147: 90, 148: 100
 };
-
-const MAX_COSTUMES = 148;
 
 /**
  * Obtém o custo de um costume em diamantes

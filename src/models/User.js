@@ -20,6 +20,7 @@
  */
 
 import { getDB } from '../db/mongo.js';
+import { MAX_COSTUMES } from '../constants/costume.js';
 
 /**
  * Busca um usuário pelo nome de usuário
@@ -243,9 +244,8 @@ export async function addCostumeToUser(userId, costumeId) {
   // Adiciona o costume
   const updatedCostumes = [...user.costumes, costumeId];
   
-  // Calcula a porcentagem (assumindo max_costume = 148 como no cliente)
-  const maxCostumes = 148;
-  const costumePercent = Math.ceil((updatedCostumes.length / maxCostumes) * 100);
+  // Calcula a porcentagem
+  const costumePercent = Math.ceil((updatedCostumes.length / MAX_COSTUMES) * 100);
   
   await db.collection('users').updateOne(
     { _id: userId },

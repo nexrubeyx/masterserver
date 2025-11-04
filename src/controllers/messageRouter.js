@@ -24,6 +24,8 @@ import { handleLoginOrCreate } from '../services/authService.js';
 import { getAllTemplates, makeTemplatePacket } from '../services/templateService.js';
 import { makeRecipePacket } from '../services/recipeService.js';
 import { validateAppearanceChanges, hasActivePremium } from '../constants/appearance.js';
+import { makeCostumeShopPacket, makeCostumeDataPacket, buyCostume, getCostumeCost } from '../services/costumeService.js';
+import { addCostumeToUser, getUserCostumeData, deductPremiumDays } from '../models/User.js';
 
 /**
  * Cria função roteadora de mensagens
@@ -145,10 +147,6 @@ export function createMessageRouter(env, logger, world) {
         });
         
         // 8.6) Envia dados de costumes do usuário
-        // Importa funções do costume service
-        const { makeCostumeDataPacket } = await import('../services/costumeService.js');
-        const { getUserCostumeData } = await import('../models/User.js');
-        
         // Obtém dados de costumes
         const costumeData = await getUserCostumeData(session.user._id);
         
@@ -279,10 +277,6 @@ export function createMessageRouter(env, logger, world) {
         // === COSTUME SHOP REQUEST ===
         // Cliente solicita abertura da loja de costumes
         if (requestType === 'cs') {
-          // Importa o costume service
-          const { makeCostumeShopPacket, makeCostumeDataPacket } = await import('../services/costumeService.js');
-          const { getUserCostumeData } = await import('../models/User.js');
-          
           // Obtém dados de costumes do usuário
           const costumeData = await getUserCostumeData(user._id);
           
@@ -306,10 +300,6 @@ export function createMessageRouter(env, logger, world) {
         // Cliente tenta comprar um costume
         if (requestType === 'cb') {
           const costumeId = Number(packet.c);
-          
-          // Importa funções necessárias
-          const { buyCostume, getCostumeCost } = await import('../services/costumeService.js');
-          const { addCostumeToUser, deductPremiumDays, getUserById, getUserCostumeData } = await import('../models/User.js');
           
           // Processa compra
           const result = await buyCostume(user, costumeId);
