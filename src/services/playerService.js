@@ -277,13 +277,14 @@ export class PlayerService {
     const map = this.world.mapService.getMap(player.mapId);
     if (!map) return;
     
-    // Constrói payload com tiles visíveis
+    // Constrói payload com tiles visíveis (sem compressão LZW)
     const tiles = this.world.mapService.buildViewportPayload(
       map,
       player.x,
       player.y,
       this.env.MAP_VIEW_RADIUS_X,
-      this.env.MAP_VIEW_RADIUS_Y
+      this.env.MAP_VIEW_RADIUS_Y,
+      false  // Desabilita compressão LZW - tiles devem ficar no formato normal
     );
     
     // === VALIDAÇÃO DE CHUNK ===
