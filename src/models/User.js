@@ -12,6 +12,9 @@
  *   email: string | null,       // Email (opcional, usado no registro)
  *   premium: number,            // Dias de premium restantes (0 = não premium)
  *   premiumExpiry: Date | null, // Data de expiração do premium
+ *   costumes: Array,            // Array de IDs de costumes desbloqueados (array de números)
+ *   costumeList: Object,        // Mapa de costume ID -> custo em diamantes (ex: {1: 5, 2: 10})
+ *   costumePercent: number,     // Porcentagem de costumes desbloqueados (0-100)
  *   createdAt: Date             // Data de criação da conta
  * }
  */
@@ -56,6 +59,9 @@ export async function createUser({ username, passwordHash, email }) {
     email: email || null, // Email ou null
     premium: 0,         // Dias de premium (0 = não premium)
     premiumExpiry: null, // Data de expiração do premium
+    costumes: [],       // Array de costumes desbloqueados (vazio inicialmente)
+    costumeList: {},    // Mapa de costume ID -> custo (vazio, será populado pelo servidor)
+    costumePercent: 0,  // Porcentagem de costumes desbloqueados (0%)
     createdAt: new Date() // Data de criação
   };
   
@@ -210,4 +216,102 @@ export async function checkAndUpdatePremium(userId) {
   }
   
   return daysRemaining;
+}
+
+/**
+ * Adiciona um costume desbloqueado ao usuário
+ * 
+ * @param {string} userId - ID do usuário (_id)
+ * @param {number} costumeId - ID do costume a desbloquear
+ * @returns {Promise<void>}
+ * 
+ * Adiciona o costume à lista de costumes desbloqueados e atualiza a porcentagem.
+ */
+export async function addCostumeToUser(userId, costumeId) {
+  const db = getDB();
+  const user = await getUserById(userId);
+  
+  if (!user) return;
+  
+  // Inicializa arrays se não existirem (para usuários antigos)
+  if (!user.costumes) user.costumes = [];
+  if (!user.costumeList) user.costumeList = {};
+  
+  // Verifica se o usuário já tem esse costume
+  if (user.costumes.includes(costumeId)) return;
+  
+  // Adiciona o costume
+  const updatedCostumes = [...user.costumes, costumeId];
+  
+  // Calcula a porcentagem (assumindo max_costume = 148 como no cliente)
+  const maxCostumes = 148;
+  const costumePercent = Math.ceil((updatedCostumes.length / maxCostumes) * 100);
+  
+  await db.collection('users').updateOne(
+    { _id: userId },
+    { 
+      $set: { 
+        costumes: updatedCostumes,
+        costumePercent: costumePercent,
+        updatedAt: new Date()
+      } 
+    }
+  );
+}
+
+/**
+ * Obtém dados de costumes do usuário (para enviar ao cliente)
+ * 
+ * @param {string} userId - ID do usuário (_id)
+ * @returns {Promise<Object>} Objeto com costumes, costumeList e costumePercent
+ * 
+ * Retorna os dados de costumes do usuário para sincronização com o cliente.
+ */
+export async function getUserCostumeData(userId) {
+  const user = await getUserById(userId);
+  
+  if (!user) {
+    return {
+      costumes: [],
+      costumeList: {},
+      costumePercent: 0
+    };
+  }
+  
+  return {
+    costumes: user.costumes || [],
+    costumeList: user.costumeList || {},
+    costumePercent: user.costumePercent || 0
+  };
+}
+
+/**
+ * Deduz dias de premium do usuário (gasta diamantes)
+ * 
+ * @param {string} userId - ID do usuário (_id)
+ * @param {number} days - Número de dias/diamantes a deduzir
+ * @returns {Promise<number>} Dias de premium restantes após dedução
+ * 
+ * Deduz diamantes do premium do usuário. Retorna o novo valor de premium.
+ */
+export async function deductPremiumDays(userId, days) {
+  const db = getDB();
+  const user = await getUserById(userId);
+  
+  if (!user) return 0;
+  
+  const currentPremium = user.premium || 0;
+  const newPremium = Math.max(0, currentPremium - days);
+  
+  await db.collection('users').updateOne(
+    { _id: userId },
+    { 
+      $set: { 
+        premium: newPremium,
+        updatedAt: new Date()
+      } 
+    }
+  );
+  
+  return newPremium;
 }
