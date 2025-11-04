@@ -341,9 +341,12 @@ export function createMessageRouter(env, logger, world) {
           const templatePacket = world.playerService.makePlayerTemplatePacket(player);
           world.sendToAllInMap(player, templatePacket);
           
-          // Envia snapshot para outros jogadores para que o cliente recrie o mob com o novo template
-          // Isso evita que o personagem desapareça após receber o plr_tpl update
+          // Envia snapshot para o próprio jogador primeiro, para que o cliente recrie o personagem
+          // com a nova aparência (similar ao fluxo de login)
           const snapshotPacket = world.playerService.makePlayerSnapshotPacket(player);
+          world.sendTo(player, snapshotPacket);
+          
+          // Envia snapshot para outros jogadores para que vejam a atualização
           world.sendToOthersInMap(player, snapshotPacket);
         }
         
