@@ -10,6 +10,8 @@
  *   username: string,           // Nome de usuário (único, indexado)
  *   passwordHash: string,       // Hash bcrypt da senha
  *   email: string | null,       // Email (opcional, usado no registro)
+ *   premium: number,            // Dias de premium restantes (0 = não premium)
+ *   premiumExpiry: Date | null, // Data de expiração do premium
  *   createdAt: Date             // Data de criação da conta
  * }
  */
@@ -52,6 +54,8 @@ export async function createUser({ username, passwordHash, email }) {
     username,           // Nome de usuário
     passwordHash,       // Hash da senha (bcrypt)
     email: email || null, // Email ou null
+    premium: 0,         // Dias de premium (0 = não premium)
+    premiumExpiry: null, // Data de expiração do premium
     createdAt: new Date() // Data de criação
   };
   
@@ -108,4 +112,102 @@ export async function ensureUserPermissionDefault(userId, defaultLevel) {
 export async function getUserById(userId) {
   const db = getDB();
   return db.collection('users').findOne({ _id: userId });
+}
+
+/**
+ * Adiciona dias de premium a um usuário
+ * 
+ * @param {string} userId - ID do usuário (_id)
+ * @param {number} days - Número de dias de premium a adicionar
+ * @returns {Promise<void>}
+ * 
+ * Atualiza o campo premium e calcula a nova data de expiração.
+ * Se o usuário já tem premium ativo, adiciona aos dias existentes.
+ */
+export async function addPremiumDays(userId, days) {
+  const db = getDB();
+  const user = await getUserById(userId);
+  
+  if (!user) return;
+  
+  // Calcula nova data de expiração
+  const now = new Date();
+  let expiryDate;
+  
+  if (user.premiumExpiry && user.premiumExpiry > now) {
+    // Usuário já tem premium ativo, adiciona aos dias existentes
+    expiryDate = new Date(user.premiumExpiry);
+    expiryDate.setDate(expiryDate.getDate() + days);
+  } else {
+    // Novo premium ou expirado, começa a partir de hoje
+    expiryDate = new Date(now);
+    expiryDate.setDate(expiryDate.getDate() + days);
+  }
+  
+  // Calcula dias restantes
+  const daysRemaining = Math.ceil((expiryDate - now) / (1000 * 60 * 60 * 24));
+  
+  await db.collection('users').updateOne(
+    { _id: userId },
+    { 
+      $set: { 
+        premium: Math.max(0, daysRemaining),
+        premiumExpiry: expiryDate,
+        updatedAt: new Date()
+      } 
+    }
+  );
+}
+
+/**
+ * Verifica e atualiza o status de premium de um usuário
+ * 
+ * @param {string} userId - ID do usuário (_id)
+ * @returns {Promise<number>} Dias de premium restantes (0 se expirado)
+ * 
+ * Verifica se o premium expirou e atualiza o campo premium se necessário.
+ * Deve ser chamado durante o login para garantir dados corretos.
+ */
+export async function checkAndUpdatePremium(userId) {
+  const db = getDB();
+  const user = await getUserById(userId);
+  
+  if (!user || !user.premiumExpiry) {
+    return 0;
+  }
+  
+  const now = new Date();
+  
+  if (user.premiumExpiry <= now) {
+    // Premium expirado, zera os campos
+    await db.collection('users').updateOne(
+      { _id: userId },
+      { 
+        $set: { 
+          premium: 0,
+          premiumExpiry: null,
+          updatedAt: new Date()
+        } 
+      }
+    );
+    return 0;
+  }
+  
+  // Calcula dias restantes
+  const daysRemaining = Math.ceil((user.premiumExpiry - now) / (1000 * 60 * 60 * 24));
+  
+  // Atualiza o campo premium com os dias corretos
+  if (user.premium !== daysRemaining) {
+    await db.collection('users').updateOne(
+      { _id: userId },
+      { 
+        $set: { 
+          premium: daysRemaining,
+          updatedAt: new Date()
+        } 
+      }
+    );
+  }
+  
+  return daysRemaining;
 }

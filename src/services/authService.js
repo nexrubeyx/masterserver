@@ -20,7 +20,7 @@
 
 import bcrypt from 'bcryptjs';
 import { b64decode } from '../utils/base64.js';
-import { findUserByUsername, createUser, ensureUserPermissionDefault } from '../models/User.js';
+import { findUserByUsername, createUser, ensureUserPermissionDefault, checkAndUpdatePremium } from '../models/User.js';
 import { createPlayer, getPlayerByUserId } from '../models/Player.js';
 import { PERMISSIONS } from '../constants/permissions.js';
 
@@ -138,7 +138,7 @@ export async function handleLoginOrCreate(env, logger, payload) {
 async function ensurePlayer(env, logger, { username, isGuest, email, userDoc }) {
   // Se não tem userDoc (guests), cria um stub temporário
   if (!userDoc) {
-    userDoc = { _id: `guest:${username}`, username, email: null };
+    userDoc = { _id: `guest:${username}`, username, email: null, premium: 0 };
   }
   
   // Garante que o usuário tem permission default (1 = PLAYER)
@@ -151,6 +151,10 @@ async function ensurePlayer(env, logger, { username, isGuest, email, userDoc }) 
     if (typeof userDoc.permission !== 'number') {
       userDoc.permission = PERMISSIONS.PLAYER;
     }
+    
+    // Verifica e atualiza status de premium
+    const premiumDays = await checkAndUpdatePremium(userDoc._id);
+    userDoc.premium = premiumDays;
   }
   
   // Busca personagem existente para este usuário
@@ -159,6 +163,8 @@ async function ensurePlayer(env, logger, { username, isGuest, email, userDoc }) 
     // Personagem já existe - retorna sem criar novo
     // Define dbId para permitir salvar posição posteriormente
     existingPlayer.dbId = existingPlayer._id;
+    // Adiciona informação de premium ao player para acesso rápido
+    existingPlayer.premium = userDoc.premium || 0;
     return { user: userDoc, player: existingPlayer, created: false };
   }
 
@@ -188,6 +194,9 @@ async function ensurePlayer(env, logger, { username, isGuest, email, userDoc }) 
 
   // Define dbId para permitir salvar posição posteriormente
   player.dbId = player._id;
+  
+  // Adiciona informação de premium ao player para acesso rápido
+  player.premium = userDoc.premium || 0;
 
   // Retorna usuário + personagem criado
   return { user: userDoc, player, created: true };

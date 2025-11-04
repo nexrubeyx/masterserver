@@ -198,6 +198,25 @@ export const schemaByType = {
       y: { type: 'integer', minimum: -99999, maximum: 99999 }
     },
     additionalProperties: false
+  },
+
+  /**
+   * Mensagem 'costume' - Troca de roupa/aparência
+   * Requer premium ou nível >= 1 (não-guest)
+   */
+  costume: {
+    type: 'object',
+    required: ['type'],
+    properties: {
+      type: { const: 'costume' },
+      body: { type: 'integer', minimum: 0, maximum: 100 },
+      hair: { type: 'integer', minimum: 0, maximum: 100 },
+      clothes: { type: 'integer', minimum: 0, maximum: 100 },
+      hair_color: { type: 'integer', minimum: 0, maximum: 16777215 },
+      clothes_color: { type: 'integer', minimum: 0, maximum: 16777215 },
+      eye_color: { type: 'integer', minimum: 0, maximum: 16777215 }
+    },
+    additionalProperties: false
   }
 };
 

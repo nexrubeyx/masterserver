@@ -61,6 +61,7 @@ export class PlayerService {
    * - n: nome do jogador
    * - l: nível
    * - p: cor do nome
+   * - pr: dias de premium
    * - s: sprite (>= 0 = monstro, -1 = humano)
    * - b, h, c: body, hair, clothes (índices de sprite)
    * - hc, cc, ec: hair color, clothes color, eye color (RGB decimal)
@@ -73,7 +74,7 @@ export class PlayerService {
       t: '',  // Título (vazio por padrão)
       l: player.level,
       p: player.appearance.nameColor,    // Cor do nome
-      pr: 0,  // Prefixo (não usado)
+      pr: player.premium || 0,           // Dias de premium
       s: player.appearance.sprite,       // -1 = humano, >= 0 = monstro
       b: player.appearance.body,         // Sprite do corpo
       h: player.appearance.hair,         // Sprite do cabelo
@@ -98,6 +99,7 @@ export class PlayerService {
    * - id: ID da sessão
    * - tpl: ID do template (mesmo que id)
    * - x, y: posição atual
+   * - dx, dy: delta de posição (offsets visuais)
    * - s: velocidade (ms/tile)
    * - d: direção (0=cima, 1=direita, 2=baixo, 3=esquerda)
    * - ch: channel/camada (0 = padrão)
@@ -109,6 +111,8 @@ export class PlayerService {
       tpl: String(player.sessionId),
       x: player.x,
       y: player.y,
+      dx: player.dx || 0,  // Delta X (offset visual)
+      dy: player.dy || 0,  // Delta Y (offset visual)
       s: player.speed || 300,
       d: player.dir || 0,
       ch: 0  // Channel (não usado, sempre 0)
