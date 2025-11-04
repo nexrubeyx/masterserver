@@ -284,8 +284,14 @@ export class MapService {
         );
       }
       
-      // Separa string por ':' e converte cada valor para número
+      // Separa string por ':' e processa cada valor
+      // Suporta tiles com underscore (ex: "21_1", "25_4") além de números simples
       const tileValues = json.tiles.split(':').map(v => {
+        // Se contém underscore, preserva como string (ex: "21_1")
+        if (v.includes('_')) {
+          return v;
+        }
+        // Caso contrário, tenta converter para número (strings vazias ou puramente numéricas)
         const num = Number(v);
         return Number.isFinite(num) ? num : 0;
       });
@@ -342,11 +348,22 @@ export class MapService {
       }
       
       // === NORMALIZAÇÃO DE VALORES ===
-      // Garante que cada tile é um número válido
+      // Garante que cada tile é um número válido ou string com underscore (ex: "21_1")
+      // Qualquer valor inválido (undefined, null, NaN, objetos) é convertido para 0
       for (let x = 0; x < json.width; x++) {
         const v = json.tiles[y][x];
-        // Se não é número finito, usa 0
-        json.tiles[y][x] = Number.isFinite(v) ? v : 0;
+        // Se é string (ex: "21_1"), preserva
+        if (typeof v === 'string') {
+          json.tiles[y][x] = v;
+        }
+        // Se é número finito, preserva
+        else if (Number.isFinite(v)) {
+          json.tiles[y][x] = v;
+        }
+        // Caso contrário, usa 0
+        else {
+          json.tiles[y][x] = 0;
+        }
       }
     }
   }
@@ -441,8 +458,13 @@ export class MapService {
           continue;
         }
 
-        const cell = Number.isFinite(row[tx]) ? row[tx] : 0;
-        out.push(String(cell));
+        // Tiles podem ser números ou strings (ex: "21_1")
+        const cell = row[tx];
+        if (typeof cell === 'string' || Number.isFinite(cell)) {
+          out.push(String(cell));
+        } else {
+          out.push('0');
+        }
       }
     }
 

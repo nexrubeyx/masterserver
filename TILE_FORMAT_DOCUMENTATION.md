@@ -5,9 +5,21 @@
 The map service now supports **three different formats** for defining tiles in map JSON files, plus **automatic LZW compression** for efficient network transmission:
 
 1. **2D Array Format** (original)
-2. **Colon-Separated String Format** (new)
+2. **Colon-Separated String Format** (new) - with **Underscore Notation Support**
 3. **Fill Format** (original)
 4. **LZW Compression** (automatic, client-compatible)
+
+### Underscore Notation Support (NEW)
+
+Tiles can now use **underscore notation** like `21_1`, `25_4`, `36_2` for tile variants and metadata. This notation is compatible with the client's tile parsing system which splits on `_` to extract additional tile information.
+
+**Examples:**
+- `21` - plain numeric tile
+- `21_1` - tile with variant/metadata suffix
+- `36_2` - another tile with variant
+- `"tiles": "21:21:21_1:0"` - mixed plain and underscore tiles
+
+Both numeric and underscore tiles can be mixed in the same map across all formats.
 
 ## Format Details
 
@@ -24,6 +36,21 @@ The traditional format using a nested array structure:
   "tiles": [
     [0, 1, 2],
     [3, 4, 5]
+  ]
+}
+```
+
+**Underscore notation** is also supported in 2D arrays:
+
+```json
+{
+  "id": "my-map-variants",
+  "version": 1,
+  "width": 3,
+  "height": 2,
+  "tiles": [
+    [0, "21_1", 2],
+    ["25_4", 4, "36_2"]
   ]
 }
 ```
@@ -45,6 +72,25 @@ A compact format using a colon-separated string:
 ```
 
 The tiles are specified in **row-major order** (left-to-right, top-to-bottom).
+
+**Underscore Notation Support** (NEW): Tiles can include underscore suffixes for additional tile metadata, compatible with the client's tile parsing:
+
+```json
+{
+  "id": "cave-with-variants",
+  "version": 1,
+  "width": 4,
+  "height": 2,
+  "tiles": "21:21:21_1:0:36_1:36_2:25_4:21_2"
+}
+```
+
+In this example:
+- `21` is a plain tile (numeric)
+- `21_1` is a tile variant with underscore notation (string)
+- Both formats can be mixed in the same map
+
+The client (ml.min.js) splits tiles by `_` to extract the base tile and additional data.
 
 **Use case**: Large maps with repeating patterns. This format is much more compact and easier to generate programmatically.
 
