@@ -36,6 +36,7 @@ import {
   buildAnimatedObjTplPacket,
   buildPlaceObjectPacket,
 } from "../utils/animatedObjects.js";
+import { findTemplate } from "./templateService.js";
 
 /**
  * Envia todos os objetos animados do mapa para um jogador
@@ -128,6 +129,18 @@ export function sendMapObjectPlacementsToPlayer(player, map, world) {
     
     // Valida coordenadas estão dentro dos limites do mapa
     if (p.x < 0 || p.x >= map.width || p.y < 0 || p.y >= map.height) {
+      continue;
+    }
+    
+    // CRÍTICO: Valida que o template existe antes de enviar
+    // Se o template não existe, o cliente receberá undefined ao tentar acessá-lo
+    // causando erro "Cannot read properties of undefined (reading 'name')"
+    const template = findTemplate(p.tpl);
+    if (!template) {
+      world.logger?.warn(
+        { mapId: map.id, tpl: p.tpl, x: p.x, y: p.y },
+        'objectPlacement referencia template inexistente - ignorando'
+      );
       continue;
     }
     

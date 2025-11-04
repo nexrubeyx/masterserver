@@ -17,7 +17,8 @@ export function registerTemplates(newTemplates) {
   // Evita duplicatas - só adiciona se não existir em templates estáticos ou adicionais
   for (const newTpl of newTemplates) {
     // Validação básica de campos obrigatórios
-    if (!newTpl.tpl || typeof newTpl.tpl !== 'string') {
+    // Aceita tanto strings quanto números para tpl (consistente com findTemplate)
+    if (!newTpl.tpl || (typeof newTpl.tpl !== 'string' && typeof newTpl.tpl !== 'number')) {
       console.warn('registerTemplates: Template sem ID válido ignorado:', newTpl);
       continue;
     }
@@ -91,12 +92,15 @@ export function sendAllTemplates(ws) {
 /**
  * Busca um template por ID
  * 
- * @param {string} tpl - ID do template
+ * @param {string|number} tpl - ID do template (aceita string ou número)
  * @returns {Object|undefined} Template encontrado ou undefined
  */
 export function findTemplate(tpl) {
   const allTemplates = getAllTemplates();
-  return allTemplates.find(t => t.tpl === tpl);
+  // Usa loose equality (==) para comparar, permitindo "1" == 1
+  // Isso resolve problema do cliente não encontrar templates quando
+  // os IDs são enviados como strings mas definidos como números (ou vice-versa)
+  return allTemplates.find(t => t.tpl == tpl);
 }
 
 export { templates };
