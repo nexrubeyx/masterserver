@@ -22,7 +22,7 @@
 import { savePlayerPosition } from '../models/Player.js';
 import { savePlayerState } from '../models/PlayerState.js';
 import { sendMapObjectSpawnsToPlayer, sendMapObjectPlacementsToPlayer } from './mapObjectsLoader.js';
-import { isDeepWater } from '../constants/tiles.js';
+import { isDeepWater, isWalkable, getModifiedSpeed } from '../constants/tiles.js';
 import { compressLZW } from '../utils/compression.js';
 
 export class PlayerService {
@@ -482,12 +482,47 @@ export class PlayerService {
         }
       }
       
-     
+      // === VALIDAÇÃO DE TILE (WALKABILITY) ===
+      // Check if tile is walkable (not in NON_WALKABLE_TILES set)
+      if (Number.isFinite(tileAtTarget) && !isWalkable(tileAtTarget)) {
+        // Movement blocked by non-walkable tile
+        this.logger.debug(
+          { sessionId: player.sessionId, tile: tileAtTarget, pos: {x: nx, y: ny} },
+          'Movement blocked by non-walkable tile'
+        );
+        break;
+      }
 
       // === MOVIMENTO VÁLIDO ===
       // Passo está dentro do mapa, aplica movimento
       player.x = nx;
       player.y = ny;
+      
+      // === APLICAR SPEED MODIFIER DO TILE ===
+      // Apply speed modifier based on the tile the player is now standing on
+      // This affects the next movement step
+      const currentTile = map.tiles[player.y]?.[player.x];
+      if (Number.isFinite(currentTile)) {
+        const modifiedSpeed = getModifiedSpeed(player.baseSpeed || 750, currentTile);
+        // Store both base speed and current modified speed
+        if (!player.baseSpeed) {
+          player.baseSpeed = player.speed || 750;
+        }
+        player.speed = modifiedSpeed;
+        
+        // Log if speed was modified (for debugging)
+        if (modifiedSpeed !== player.baseSpeed) {
+          this.logger.debug(
+            { 
+              sessionId: player.sessionId, 
+              tile: currentTile, 
+              baseSpeed: player.baseSpeed,
+              modifiedSpeed: modifiedSpeed 
+            },
+            'Speed modifier applied'
+          );
+        }
+      }
 
       // Marca viewport como sujo para enviar viewport atualizado
       this.markViewportDirty(player);
