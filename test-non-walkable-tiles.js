@@ -24,7 +24,9 @@ if (NON_WALKABLE_TILES instanceof Set) {
   console.log('✓ NON_WALKABLE_TILES is a Set');
   console.log(`  Size: ${NON_WALKABLE_TILES.size} tiles`);
   if (NON_WALKABLE_TILES.size > 0) {
-    console.log(`  Tiles: ${Array.from(NON_WALKABLE_TILES).sort((a,b) => a-b).join(', ')}`);
+    const tilesArray = Array.from(NON_WALKABLE_TILES).sort((a,b) => a-b);
+    console.log(`  Range: ${tilesArray[0]} - ${tilesArray[tilesArray.length - 1]}`);
+    console.log(`  Sample tiles: ${tilesArray.slice(0, 5).join(', ')}...`);
   }
 } else {
   console.log('✗ NON_WALKABLE_TILES is not a Set');

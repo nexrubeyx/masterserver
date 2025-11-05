@@ -97,7 +97,7 @@ export const NON_WALKABLE_TILES = new Set([
   231, 232, 233, 234, 235, 236, 237, 238, 239, 240, // High mountains
   
   // === LARGE ROCKS AND BOULDERS (241-260) ===
-  241, 242, 243, 244, 245, 246, 247, // Large rocks (note: 248 is deep water)
+  241, 242, 243, 244, 245, 246, 247, // Large rocks (note: 248 is DEEP_WATER_STATIC_2, handled separately)
   249, 250, 251, 252, 253, 254, 255, 256, 257, 258, 259, 260, // Boulders
   
   // === SPECIAL OBSTACLES (261-280) ===

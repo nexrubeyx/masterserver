@@ -7,7 +7,11 @@
  * 3. Movement validation works correctly with the tile system
  */
 
-import { NON_WALKABLE_TILES } from './src/constants/tiles.js';
+import { 
+  NON_WALKABLE_TILES,
+  DEEP_WATER_STATIC_1,
+  DEEP_WATER_STATIC_2
+} from './src/constants/tiles.js';
 
 console.log('=== Testing Movement Blocking Integration ===\n');
 
@@ -92,10 +96,10 @@ if (NON_WALKABLE_TILES.has(boulderTile)) {
 // Test scenario 5: Verify all added tile ranges
 console.log('\nTest 5: Verify comprehensive tile coverage');
 const testRanges = [
-  { name: 'Walls (200-220)', min: 200, max: 220, exceptions: [215] },
+  { name: 'Walls (200-220)', min: 200, max: 220, exceptions: [DEEP_WATER_STATIC_1] }, // 215 is DEEP_WATER_STATIC_1
   { name: 'Mountains (180-199)', min: 180, max: 199, exceptions: [] },
   { name: 'Cliffs (221-240)', min: 221, max: 240, exceptions: [] },
-  { name: 'Rocks (241-260)', min: 241, max: 260, exceptions: [248] },
+  { name: 'Rocks (241-260)', min: 241, max: 260, exceptions: [DEEP_WATER_STATIC_2] }, // 248 is DEEP_WATER_STATIC_2
   { name: 'Obstacles (261-280)', min: 261, max: 280, exceptions: [] }
 ];
 
@@ -123,7 +127,7 @@ if (!allRangesCorrect) {
 
 // Test scenario 6: Verify exceptions are NOT in the set
 console.log('\nTest 6: Verify deep water tiles are handled separately');
-const deepWaterExceptions = [215, 248]; // Deep water tiles handled separately
+const deepWaterExceptions = [DEEP_WATER_STATIC_1, DEEP_WATER_STATIC_2]; // 215, 248
 let exceptionsCorrect = true;
 for (const tileId of deepWaterExceptions) {
   if (NON_WALKABLE_TILES.has(tileId)) {
