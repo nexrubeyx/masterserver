@@ -722,7 +722,7 @@ export class PlayerService {
    * }
    */
   flushPendingSnapshots() {
-    // Coleta todos os mapas que tiveram jogadores com snapshots pendentes
+    // Collect all maps that had players with pending snapshots
     const mapsWithUpdates = new Set();
     
     for (const player of this.world.players.values()) {
@@ -733,25 +733,25 @@ export class PlayerService {
       
       mapsWithUpdates.add(mapId);
       
-      // Limpa flag de snapshot pendente
+      // Clear pending snapshot flag
       player._pendingSnapshot = false;
     }
     
-    // Para cada mapa que teve atualizações
+    // For each map that had updates
     for (const mapId of mapsWithUpdates) {
-      // Obtém todos os jogadores no mapa
+      // Get all players in the map
       const allPlayersInMap = this.world.getPlayersInMap(mapId);
       
-      // Para cada jogador que precisa receber atualizações
+      // For each receiver that needs to receive updates
       for (const receiver of allPlayersInMap) {
-        // MUDANÇA: Envia TODOS os jogadores dentro do chunk/viewport, não apenas os que se moveram
-        // Isso garante que jogadores parados também sejam incluídos no pacote "pl"
+        // CHANGE: Send ALL players within chunk/viewport, not just those that moved
+        // This ensures stationary players are also included in the "pl" packet
         const visiblePlayers = allPlayersInMap.filter(player => {
-          // Verifica se está dentro do range visível (chunk)
+          // Check if within visible range (chunk)
           return this.isPlayerInViewRange(receiver, player);
         });
         
-        // Se há jogadores visíveis, envia pacote "pl" com TODOS eles
+        // If there are visible players, send "pl" packet with ALL of them
         if (visiblePlayers.length > 0) {
           const plData = this.makePlayerListData(visiblePlayers);
           
@@ -760,11 +760,11 @@ export class PlayerService {
             data: plData
           };
           
-          // MUDANÇA: TODOS os jogadores recebem o pacote "pl" dentro de um "pkg"
-          // Formato: pkg > pl > p (conforme esperado pelo cliente)
-          // Nota: O double stringify é necessário pelo protocolo do cliente.
-          // Primeira camada: stringify do plPacket para string
-          // Segunda camada: stringify do array contendo a string do plPacket
+          // CHANGE: ALL players receive the "pl" packet inside a "pkg"
+          // Format: pkg > pl > p (as expected by the client)
+          // Note: Double stringify is required by the client protocol.
+          // First layer: stringify the plPacket to string
+          // Second layer: stringify the array containing the plPacket string
           const pkgPacket = {
             type: 'pkg',
             data: JSON.stringify([JSON.stringify(plPacket)])
