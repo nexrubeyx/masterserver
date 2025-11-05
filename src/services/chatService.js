@@ -16,6 +16,8 @@
  * - Limite de 2048 caracteres por mensagem (validado no schema)
  */
 
+import { getAllItemTemplates } from '../models/Item.js';
+
 export class ChatService {
   constructor(env, logger, world) {
     this.env = env;       // Configurações do ambiente
@@ -139,7 +141,6 @@ export class ChatService {
     
     // Comando /items - Lista templates de items disponíveis
     if (text.startsWith('/items')) {
-      const { getAllItemTemplates } = await import('../models/Item.js');
       const templates = getAllItemTemplates();
       
       this.world.sendTo(player, {
