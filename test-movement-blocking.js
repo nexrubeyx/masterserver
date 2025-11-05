@@ -109,6 +109,7 @@ for (const range of testRanges) {
   let missingTiles = [];
   for (let tileId = range.min; tileId <= range.max; tileId++) {
     // Use isWalkable() to check if tile is blocked
+    // Numeric tiles are automatically converted to "_0" format (e.g., 200 -> "200_0")
     if (!range.exceptions.includes(tileId) && isWalkable(tileId)) {
       missingTiles.push(tileId);
       allRangesCorrect = false;

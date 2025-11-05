@@ -212,24 +212,27 @@ export function isWalkable(tileId) {
     // If no underscore, add "_0" suffix (e.g., "21" -> "21_0")
     if (!tileId.includes('_')) {
       normalizedTile = `${tileId}_0`;
-    } else {
-      // Already in correct format, already checked above
-      return true;
+      // Check normalized format before returning
+      if (NON_WALKABLE_TILES.has(normalizedTile)) {
+        return false;
+      }
     }
+    // String with underscore already checked above, or normalization checked
+    // If not found in either case, tile is walkable
+    return true;
   } else if (typeof tileId === 'number') {
     // Number input: convert to "number_0" format (e.g., 21 -> "21_0")
     if (!Number.isFinite(tileId)) {
       return true;
     }
     normalizedTile = `${tileId}_0`;
+    // Check normalized format
+    if (NON_WALKABLE_TILES.has(normalizedTile)) {
+      return false;
+    }
   } else {
     // Unknown type, treat as walkable
     return true;
-  }
-  
-  // Check normalized format
-  if (NON_WALKABLE_TILES.has(normalizedTile)) {
-    return false;
   }
   
   // Deep water is also non-walkable by default (unless player can swim)
