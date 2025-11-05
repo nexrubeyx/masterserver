@@ -62,7 +62,8 @@ export function createMessageRouter(env, logger, world) {
       case 'guest': {
         try {
           // Autentica usuário e carrega/cria personagem
-          const auth = await handleLoginOrCreate(env, logger, packet);
+          // Passa world para verificar jogadores dormindo antes de criar/carregar do banco
+          const auth = await handleLoginOrCreate(env, logger, world, packet);
           
           // Anexa sessão do jogador à conexão WebSocket
           world.attachSession(ws, { user: auth.user, player: auth.player });

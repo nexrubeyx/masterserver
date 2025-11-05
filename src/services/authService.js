@@ -33,6 +33,7 @@ const SALT_ROUNDS = 10;
  * 
  * @param {Object} env - Configurações do ambiente (defaults de personagem)
  * @param {Object} logger - Logger para registrar eventos
+ * @param {Object} world - Instância do World para verificar jogadores dormindo
  * @param {Object} payload - Mensagem do cliente (tipo 'login' ou 'guest')
  * @returns {Promise<Object>} { user, player, created } onde:
  *   - user: documento do usuário
@@ -44,14 +45,14 @@ const SALT_ROUNDS = 10;
  * - { type: 'guest' } -> cria guest-XXXXX aleatório
  * - { type: 'login', user, pass, email } -> login ou registro
  */
-export async function handleLoginOrCreate(env, logger, payload) {
+export async function handleLoginOrCreate(env, logger, world, payload) {
   // === FLUXO GUEST ===
   // Cria conta temporária sem senha
   if (payload.type === 'guest') {
     // Gera nome aleatório: guest-abc123
     const guestName = `guest-${Math.random().toString(36).slice(2, 8)}`;
     
-    return await ensurePlayer(env, logger, {
+    return await ensurePlayer(env, logger, world, {
       username: guestName,
       isGuest: true,
       email: null,
@@ -87,7 +88,7 @@ export async function handleLoginOrCreate(env, logger, payload) {
     });
     
     // Cria personagem para o novo usuário
-    return await ensurePlayer(env, logger, {
+    return await ensurePlayer(env, logger, world, {
       username: usernameRaw,
       isGuest: false,
       email: emailRaw,
@@ -107,7 +108,7 @@ export async function handleLoginOrCreate(env, logger, payload) {
     if (!ok) throw new Error('Invalid username or password.');
     
     // Senha correta - carrega ou cria personagem
-    return await ensurePlayer(env, logger, {
+    return await ensurePlayer(env, logger, world, {
       username: existing.username,
       isGuest: false,
       email: existing.email || null,
@@ -126,6 +127,7 @@ export async function handleLoginOrCreate(env, logger, payload) {
  * 
  * @param {Object} env - Configurações do ambiente
  * @param {Object} logger - Logger
+ * @param {Object} world - Instância do World para verificar jogadores dormindo
  * @param {Object} params - Dados do usuário
  * @returns {Promise<Object>} { user, player, created }
  * 
@@ -135,10 +137,51 @@ export async function handleLoginOrCreate(env, logger, payload) {
  * Esta função é usada tanto para novos usuários quanto para
  * usuários existentes que ainda não têm personagem.
  */
-async function ensurePlayer(env, logger, { username, isGuest, email, userDoc }) {
+async function ensurePlayer(env, logger, world, { username, isGuest, email, userDoc }) {
   // Se não tem userDoc (guests), cria um stub temporário
   if (!userDoc) {
     userDoc = { _id: `guest:${username}`, username, email: null, premium: 0 };
+  }
+  
+  // === VERIFICAÇÃO DE JOGADOR DORMINDO ===
+  // Se este usuário tem um jogador dormindo, cancela o timer e reutiliza o jogador
+  // Isso previne a criação de personagem duplicado quando o jogador reconecta
+  // antes do timer de 60 segundos expirar
+  if (world && world.sleepingPlayers) {
+    for (const [sessionId, sleepData] of world.sleepingPlayers) {
+      if (String(sleepData.user?._id) === String(userDoc?._id)) {
+        // Cancela o timer de desconexão
+        if (sleepData.timeoutId) {
+          clearTimeout(sleepData.timeoutId);
+        }
+        
+        // Remove do mapa de sleeping
+        world.sleepingPlayers.delete(sessionId);
+        
+        // Reutiliza o jogador dormindo (mantém posição e estado)
+        const wakingPlayer = sleepData.player;
+        wakingPlayer.sleeping = false;
+        
+        // Marca que este jogador está acordando do sleep para mostrar mensagem
+        wakingPlayer._wasWakingFromSleep = true;
+        
+        // Atualiza informação de premium
+        if (userDoc._id && typeof userDoc._id === 'object') {
+          const premiumDays = await checkAndUpdatePremium(userDoc._id);
+          userDoc.premium = premiumDays;
+          wakingPlayer.premium = premiumDays;
+        }
+        
+        // Log
+        logger?.info(
+          { sessionId, name: wakingPlayer?.name, userId: userDoc?._id },
+          'Jogador reconectado durante período de sleep - reutilizando personagem'
+        );
+        
+        // Retorna o jogador dormindo (não cria novo)
+        return { user: userDoc, player: wakingPlayer, created: false };
+      }
+    }
   }
   
   // Garante que o usuário tem permission default (1 = PLAYER)
