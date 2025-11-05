@@ -373,8 +373,9 @@ export class PlayerService {
    * @param {number} now - Timestamp atual (ms)
    * @param {boolean} immediate - Se true, ignora rate limit e envia imediatamente
    * 
-   * Envia pacote 'p' para OUTROS jogadores no mesmo mapa.
-   * Não envia para o próprio jogador (ele já sabe onde está).
+   * Marca o jogador para ser incluído no próximo batch de snapshots.
+   * Os snapshots são enviados em formato "pl" (player list) ao invés de
+   * pacotes "p" individuais para otimizar a rede.
    * 
    * O parâmetro 'immediate' é usado quando precisamos garantir
    * sincronização imediata, como após correção de posição.
@@ -386,8 +387,8 @@ export class PlayerService {
     // Rate limiting: respeita intervalo mínimo entre snapshots (a menos que seja imediato)
     if (!immediate && now - (player._lastSnapshotAt || 0) < this._snapshotMinInterval) return;
 
-    // Envia snapshot para outros jogadores (não para si mesmo)
-    this.world.sendToOthersInMap(player, this.makePlayerSnapshotPacket(player));
+    // Marca jogador para ser incluído no próximo batch de snapshots
+    player._pendingSnapshot = true;
     
     // Atualiza timestamp e limpa flag
     player._lastSnapshotAt = now;
@@ -663,5 +664,65 @@ export class PlayerService {
       appearance: player.appearance,
       speed: player.speed
     });
+  }
+
+  /**
+   * Envia todos os snapshots pendentes em lote
+   * 
+   * Este método coleta todos os jogadores com snapshots pendentes,
+   * agrupa por mapa e envia pacotes "pl" (player list) para cada mapa.
+   * 
+   * Chamado no final de cada tick do game loop para enviar todas as
+   * atualizações de movimento em lote, otimizando a rede.
+   * 
+   * Formato do pacote:
+   * {
+   *   type: "pl",
+   *   data: [
+   *     "{\"type\":\"p\",\"id\":123,...}",
+   *     "{\"type\":\"p\",\"id\":456,...}",
+   *     ...
+   *   ]
+   * }
+   */
+  flushPendingSnapshots() {
+    // Agrupa jogadores com snapshots pendentes por mapa
+    const snapshotsByMap = new Map();
+    
+    for (const player of this.world.players.values()) {
+      if (!player._pendingSnapshot) continue;
+      
+      const mapId = player.mapId;
+      if (!mapId) continue;
+      
+      if (!snapshotsByMap.has(mapId)) {
+        snapshotsByMap.set(mapId, []);
+      }
+      
+      snapshotsByMap.get(mapId).push(player);
+      
+      // Limpa flag de snapshot pendente
+      player._pendingSnapshot = false;
+    }
+    
+    // Envia pacote "pl" para cada mapa com jogadores atualizados
+    for (const [mapId, players] of snapshotsByMap.entries()) {
+      if (players.length === 0) continue;
+      
+      // Cria array de snapshots serializados
+      const plData = players.map(p => {
+        const snapshot = this.makePlayerSnapshotPacket(p);
+        return JSON.stringify(snapshot);
+      });
+      
+      // Cria pacote "pl"
+      const plPacket = {
+        type: 'pl',
+        data: plData
+      };
+      
+      // Envia para todos os jogadores no mapa
+      this.world.broadcastInMap(mapId, plPacket);
+    }
   }
 }

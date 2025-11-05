@@ -127,6 +127,9 @@ export class World {
         this.playerService.tickPlayer(player, dt);
       }
       
+      // Envia todos os snapshots pendentes em lote (formato "pl")
+      this.playerService.flushPendingSnapshots();
+      
       // RECONCILIAÇÃO DESABILITADA:
       // A reconciliação periódica foi desabilitada conforme solicitado.
       // Anteriormente, enviava broadcasts de todas as posições periodicamente.
