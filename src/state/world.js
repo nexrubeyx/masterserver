@@ -824,28 +824,27 @@ const poofedTemplate = {
   }
 
   /**
-   * Envia pacote para jogadores dentro do chunk/viewport do jogador
+   * Broadcasts packet to players within chunk/viewport of the emitting player
    * 
-   * Broadcast local baseado em proximidade (chunk).
-   * Envia apenas para jogadores que estão dentro do range visível
-   * do jogador emissor.
+   * Proximity-based local broadcast using chunk/viewport.
+   * Only sends to players within visible range of the emitter.
    * 
-   * Usado para chat local (canal 0) e outras comunicações de curto alcance.
+   * Used for local chat (channel 0) and other short-range communications.
    * 
-   * @param {Object} player - Jogador emissor (centro do chunk)
-   * @param {Object} obj - Objeto a enviar
+   * @param {Object} player - Emitting player (center of chunk)
+   * @param {Object} obj - Object to send
    */
   broadcastInChunk(player, obj) {
     if (!player || !player.mapId) return;
     
     for (const [ws, session] of this.sessions) {
-      // Valida que sessão tem jogador
+      // Validate session has player
       if (!session || !session.player) continue;
       
-      // Pula se não está no mesmo mapa
+      // Skip if not in same map
       if (session.player.mapId !== player.mapId) continue;
       
-      // Verifica se está dentro do range visível (chunk)
+      // Check if within visible range (chunk)
       if (this.playerService.isPlayerInViewRange(player, session.player)) {
         this.sendRaw(ws, obj);
       }

@@ -684,28 +684,34 @@ export class PlayerService {
   }
 
   /**
-   * Envia todos os snapshots pendentes em lote
+   * Sends all pending snapshots in batch
    * 
-   * Este método envia pacotes "pl" (player list) contendo TODOS os jogadores
-   * dentro do range visível (viewport/chunk) de cada jogador, incluindo
-   * jogadores que estão parados (não apenas os que se moveram).
+   * This method sends "pl" (player list) packets containing ALL players
+   * within visible range (viewport/chunk) of each player, including
+   * stationary players (not just those that moved).
    * 
-   * IMPORTANTE: Quando pelo menos um jogador em um mapa tem snapshot pendente,
-   * TODOS os jogadores visíveis no chunk são incluídos no pacote "pl".
+   * IMPORTANT: When at least one player in a map has a pending snapshot,
+   * ALL visible players in each receiver's chunk are included in the "pl" packet.
    * 
-   * NOTA SOBRE TRÁFEGO DE REDE:
-   * Esta implementação envia TODOS os jogadores no viewport, mesmo os que não se moveram.
-   * Isso é o comportamento DESEJADO conforme especificação do requisito:
-   * "deve enviar todos os jogadores que estão dentro da mesma chunk até os mesmos 
-   * jogadores que não estão se movendo".
+   * NETWORK TRAFFIC NOTE:
+   * This implementation sends ALL players in viewport, even those that haven't moved.
+   * This is the DESIRED behavior per requirement specification:
+   * "must send all players within the same chunk, even players that are not moving".
    * 
-   * Trade-off: Aumenta tráfego de rede mas garante que clientes sempre tenham
-   * dados completos e atualizados de todos os jogadores visíveis.
+   * Trade-off Analysis:
+   * - PROS: Clients always have complete, up-to-date data for all visible players
+   *         Simpler to implement and maintain
+   *         Prevents desync issues with stationary players
+   * - CONS: Increased network traffic when any player moves
+   *         Network usage scales with: (players in viewport)² per map
    * 
-   * Chamado no final de cada tick do game loop para enviar todas as
-   * atualizações de movimento em lote, otimizando a rede.
+   * Alternative Approach (NOT implemented per requirements):
+   * Could track individual player state changes and send incremental updates,
+   * but this was explicitly NOT requested in the requirements.
    * 
-   * Formato do pacote:
+   * Called at end of each game loop tick to send all movement updates in batch.
+   * 
+   * Packet format:
    * {
    *   type: "pl",
    *   data: [

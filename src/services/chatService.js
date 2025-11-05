@@ -61,23 +61,23 @@ export class ChatService {
 
      
 
-    // === MENSAGENS DE CHAT ===
+    // === CHAT MESSAGES ===
     
-    // Monta pacote de mensagem com escape de HTML
-    // Formato: "NomeDoJogador: mensagem"
+    // Build message packet with HTML escaping
+    // Format: "PlayerName: message"
     const msg = {
       type: 'message',
       text: this.escapeHTML(`${player.name}: ${text}`)
     };
 
-    // Determina destinatários baseado no prefixo
+    // Determine recipients based on prefix
     if (text.startsWith('/b ')) {
-      // Canal Global (/b) - envia para TODOS os jogadores conectados
+      // Global Channel (/b) - send to ALL connected players
       this.world.broadcastAll(msg);
     } else {
-      // Canal Local (Chat 0) - envia apenas para jogadores no mesmo chunk/viewport
-      // MUDANÇA: Agora usa broadcastInChunk em vez de broadcastInMap
-      // Isso garante que apenas jogadores próximos (dentro do viewport) recebam a mensagem
+      // Local Chat (Channel 0) - send only to players in same chunk/viewport
+      // Uses broadcastInChunk instead of broadcastInMap to ensure
+      // only nearby players (within viewport range) receive the message
       this.world.broadcastInChunk(player, msg);
     }
   }
