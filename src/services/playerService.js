@@ -330,14 +330,8 @@ export class PlayerService {
       return;
     }
 
-    // Se é um chunk duplicado, não precisa enviar novamente
-    if (validation.duplicate) {
-      this.logger.debug(
-        { sessionId: player.sessionId, checksum: validation.checksum },
-        'Chunk duplicado não enviado'
-      );
-      return;
-    }
+    // Note: Duplicate chunk detection removed per user request
+    // Always send chunks even if they are duplicates to prevent desynchronization issues
 
     // === COMPRESSÃO E ENCAPSULAMENTO DO MAPA ===
     // Estrutura: PKG → ZIP → MAP (conforme protocolo original do cliente)

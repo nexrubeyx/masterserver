@@ -200,24 +200,11 @@ export class ChunkValidationService {
       }
     }
 
-    // === VALIDAÇÃO 5: Checksum e Detecção de Duplicatas ===
-    const chunkKey = this._generateChunkKey(player.mapId, ox, oy, radiusX, radiusY);
+    // === VALIDAÇÃO 5: Checksum (Duplicate detection removed per user request) ===
     const checksum = this._calculateChecksum(tilesData);
 
-    // Verifica se já enviamos este chunk exato para este jogador
-    const playerChecksums = this.chunkChecksums.get(player.sessionId);
-    if (playerChecksums && playerChecksums[chunkKey] === checksum) {
-      this.stats.duplicatesPrevented++;
-      this.logger.debug(
-        { sessionId: player.sessionId, chunkKey },
-        'Chunk duplicado detectado e prevenido'
-      );
-      // Nota: Retorna valid=true mas com flag duplicate
-      return { valid: true, duplicate: true, checksum };
-    }
-
-    // Registra checksum deste chunk
-    this._recordChunkChecksum(player.sessionId, chunkKey, checksum);
+    // Note: Duplicate chunk detection has been removed to prevent desynchronization issues
+    // Chunks are now always sent even if they are duplicates
 
     // === TODAS AS VALIDAÇÕES PASSARAM ===
     this.stats.totalSent++;

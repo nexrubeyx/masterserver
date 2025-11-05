@@ -143,8 +143,9 @@ export function createMessageRouter(env, logger, world) {
         // 7) Envia dados de receitas/crafting (build data)
         world.sendTo(player, makeRecipePacket());
         
-        // 8) Envia inventário inicial (vazio)
-        world.sendTo(player, { type: 'inv', data: [] });
+        // 8) Inicializa e envia inventário do jogador
+        world.itemService.initializeInventory(player);
+        world.itemService.sendInventoryToClient(player);
         
         // 8.5) Envia pacote 'game' com informações de premium e locks de costume
         // Este pacote é esperado pelo cliente para habilitar funcionalidades premium
@@ -500,6 +501,35 @@ export function createMessageRouter(env, logger, world) {
             world.sendToOthersInMap(player, snapshotPacket);
           }
           
+          return;
+        }
+        
+        // === PLAYER LIST REQUEST (c0) ===
+        // Cliente solicita lista de jogadores visíveis
+        if (requestType === 'c0') {
+          // Get all players in the same map
+          const allPlayersInMap = world.getPlayersInMap(player.mapId);
+          
+          // Filter to only include players within visible range (chunk)
+          const visiblePlayers = allPlayersInMap.filter(p => {
+            return world.playerService.isPlayerInViewRange(player, p);
+          });
+          
+          // Create player list data
+          const plData = world.playerService.makePlayerListData(visiblePlayers);
+          
+          // Send as pl packet wrapped in pkg (same format as regular player updates)
+          const plPacket = {
+            type: 'pl',
+            data: plData
+          };
+          
+          const pkgPacket = {
+            type: 'pkg',
+            data: JSON.stringify([JSON.stringify(plPacket)])
+          };
+          
+          world.sendTo(player, pkgPacket);
           return;
         }
         
