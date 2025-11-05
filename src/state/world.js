@@ -735,7 +735,7 @@ const poofedTemplate = {
    * 
    * Para cada jogador, envia:
    * - Template (plr_tpl): aparência visual (sprites, cores)
-   * - Snapshot (p): posição atual e estado
+   * - Pacote "pl" (player list): lista de todos os jogadores visíveis
    * 
    * @param {Object} newPlayer - Jogador que acabou de entrar
    */
@@ -744,19 +744,45 @@ const poofedTemplate = {
     const sameMap = this.getPlayersInMap(newPlayer.mapId);
 
     // 1) Notifica outros sobre o novo jogador
+    // Envia template para todos (necessário para renderizar)
     const newTpl = this.playerService.makePlayerTemplatePacket(newPlayer);
-    const newSnap = this.playerService.makePlayerSnapshotPacket(newPlayer);
     for (const p of sameMap) {
       if (p === newPlayer) continue;  // Pula o próprio
       this.sendTo(p, newTpl);         // Envia template do novo
-      this.sendTo(p, newSnap);        // Envia snapshot do novo
     }
 
-    // 2) Envia ao novo os jogadores já presentes
+    // 2) Envia templates dos jogadores já presentes para o novo jogador
     for (const p of sameMap) {
       if (p === newPlayer) continue;  // Pula o próprio
       this.sendTo(newPlayer, this.playerService.makePlayerTemplatePacket(p));
-      this.sendTo(newPlayer, this.playerService.makePlayerSnapshotPacket(p));
+    }
+
+    // 3) Envia pacote "pl" para TODOS os jogadores no mapa
+    // Isso garante que todos tenham a lista completa e atualizada de jogadores
+    const allPlayers = sameMap.filter(p => this.playerService.isPlayerInViewRange(newPlayer, p));
+    
+    // Para cada jogador no mapa, envia lista de jogadores visíveis
+    for (const receiver of sameMap) {
+      // Filtra jogadores visíveis para este receiver
+      const visiblePlayers = sameMap.filter(p => {
+        if (p === receiver) return false; // Não inclui o próprio
+        return this.playerService.isPlayerInViewRange(receiver, p);
+      });
+      
+      if (visiblePlayers.length > 0) {
+        // Cria pacote "pl" com todos os jogadores visíveis
+        const plData = visiblePlayers.map(p => {
+          const snapshot = this.playerService.makePlayerSnapshotPacket(p);
+          return JSON.stringify(snapshot);
+        });
+        
+        const plPacket = {
+          type: 'pl',
+          data: plData
+        };
+        
+        this.sendTo(receiver, plPacket);
+      }
     }
   }
 
