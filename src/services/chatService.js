@@ -17,22 +17,13 @@
  */
 
 import { getAllItemTemplates } from '../models/Item.js';
+import { hasActivePremium } from '../constants/appearance.js';
 
 export class ChatService {
   constructor(env, logger, world) {
     this.env = env;       // Configurações do ambiente
     this.logger = logger; // Logger para registrar eventos
     this.world = world;   // World para acessar jogadores e enviar mensagens
-  }
-
-  /**
-   * Verifica se o jogador tem premium ativo
-   * 
-   * @param {Object} player - Jogador
-   * @returns {boolean} True se tem premium ativo
-   */
-  hasActivePremium(player) {
-    return player.premium && player.premium > 0;
   }
 
   /**
@@ -163,7 +154,7 @@ export class ChatService {
       
       // Determina cor da mensagem
       let color = '#FF44FF'; // Cor padrão para não-VIP
-      if (this.hasActivePremium(player)) {
+      if (hasActivePremium(player)) {
         color = this.getPlayerNameColor(player); // VIP usa cor do nome
       }
       
