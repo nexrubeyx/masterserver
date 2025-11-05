@@ -5,7 +5,7 @@
  * para os destinatários apropriados.
  * 
  * Canais suportados:
- * - Chat local: mensagem vai para todos no mesmo mapa
+ * - Chat local (canal 0): mensagem vai para jogadores no mesmo chunk/viewport
  * - Chat global (/b): mensagem vai para todos os jogadores conectados
  * - Comandos especiais: /ping, /help, etc
  * 
@@ -32,7 +32,7 @@ export class ChatService {
    * - /ping: responde com PONG!
    * - /quit: salva o jogador e desconecta
    * - /b mensagem: envia para todos (global broadcast)
-   * - Outras mensagens: envia para todos no mesmo mapa (local)
+   * - Outras mensagens: envia para jogadores no mesmo chunk/viewport (local)
    * 
    * Formato da mensagem enviada:
    * { type: 'message', text: 'Nome: mensagem' }
@@ -61,22 +61,24 @@ export class ChatService {
 
      
 
-    // === MENSAGENS DE CHAT ===
+    // === CHAT MESSAGES ===
     
-    // Monta pacote de mensagem com escape de HTML
-    // Formato: "NomeDoJogador: mensagem"
+    // Build message packet with HTML escaping
+    // Format: "PlayerName: message"
     const msg = {
       type: 'message',
       text: this.escapeHTML(`${player.name}: ${text}`)
     };
 
-    // Determina destinatários baseado no prefixo
+    // Determine recipients based on prefix
     if (text.startsWith('/b ')) {
-      // Canal Global (/b) - envia para TODOS os jogadores conectados
+      // Global Channel (/b) - send to ALL connected players
       this.world.broadcastAll(msg);
     } else {
-      // Canal Local - envia apenas para jogadores no mesmo mapa
-      this.world.broadcastInMap(player.mapId, msg);
+      // Local Chat (Channel 0) - send only to players in same chunk/viewport
+      // Uses broadcastInChunk instead of broadcastInMap to ensure
+      // only nearby players (within viewport range) receive the message
+      this.world.broadcastInChunk(player, msg);
     }
   }
 

@@ -684,16 +684,34 @@ export class PlayerService {
   }
 
   /**
-   * Envia todos os snapshots pendentes em lote
+   * Sends all pending snapshots in batch
    * 
-   * Este método coleta todos os jogadores com snapshots pendentes,
-   * e envia pacotes "pl" (player list) apenas para jogadores que estão
-   * dentro do range visível (viewport/chunk) de cada jogador.
+   * This method sends "pl" (player list) packets containing ALL players
+   * within visible range (viewport/chunk) of each player, including
+   * stationary players (not just those that moved).
    * 
-   * Chamado no final de cada tick do game loop para enviar todas as
-   * atualizações de movimento em lote, otimizando a rede.
+   * IMPORTANT: When at least one player in a map has a pending snapshot,
+   * ALL visible players in each receiver's chunk are included in the "pl" packet.
    * 
-   * Formato do pacote:
+   * NETWORK TRAFFIC NOTE:
+   * This implementation sends ALL players in viewport, even those that haven't moved.
+   * This is the DESIRED behavior per requirement specification:
+   * "must send all players within the same chunk, even players that are not moving".
+   * 
+   * Trade-off Analysis:
+   * - PROS: Clients always have complete, up-to-date data for all visible players
+   *         Simpler to implement and maintain
+   *         Prevents desync issues with stationary players
+   * - CONS: Increased network traffic when any player moves
+   *         Network usage scales with: (players in viewport)² per map
+   * 
+   * Alternative Approach (NOT implemented per requirements):
+   * Could track individual player state changes and send incremental updates,
+   * but this was explicitly NOT requested in the requirements.
+   * 
+   * Called at end of each game loop tick to send all movement updates in batch.
+   * 
+   * Packet format:
    * {
    *   type: "pl",
    *   data: [
@@ -704,8 +722,9 @@ export class PlayerService {
    * }
    */
   flushPendingSnapshots() {
-    // Coleta todos os jogadores com snapshots pendentes por mapa
-    const snapshotsByMap = new Map();
+    // Collect all maps where at least one player moved
+    // For these maps, we'll send ALL visible players (moving + stationary) to all receivers
+    const mapsWithUpdates = new Set();
     
     for (const player of this.world.players.values()) {
       if (!player._pendingSnapshot) continue;
@@ -713,48 +732,44 @@ export class PlayerService {
       const mapId = player.mapId;
       if (!mapId) continue;
       
-      if (!snapshotsByMap.has(mapId)) {
-        snapshotsByMap.set(mapId, []);
-      }
+      mapsWithUpdates.add(mapId);
       
-      snapshotsByMap.get(mapId).push(player);
-      
-      // Limpa flag de snapshot pendente
+      // Clear pending snapshot flag
       player._pendingSnapshot = false;
     }
     
-    // Para cada mapa com jogadores atualizados
-    for (const [mapId, updatedPlayers] of snapshotsByMap.entries()) {
-      if (updatedPlayers.length === 0) continue;
-      
-      // Obtém todos os jogadores no mapa
+    // For each map that had updates
+    for (const mapId of mapsWithUpdates) {
+      // Get all players in the map
       const allPlayersInMap = this.world.getPlayersInMap(mapId);
       
-      // Para cada jogador que precisa receber atualizações
+      // For each receiver that needs to receive updates
       for (const receiver of allPlayersInMap) {
-        // Filtra jogadores atualizados que estão dentro do range visível do receiver
-        const visibleUpdates = updatedPlayers.filter(updatedPlayer => {
-          // MUDANÇA: Agora INCLUI o próprio jogador na lista se ele foi atualizado
-          // Isso resolve o bug de overlap e garante sincronização adequada
-          
-          // Verifica se está dentro do range visível
-          return this.isPlayerInViewRange(receiver, updatedPlayer);
+        // CHANGE: Send ALL players within chunk/viewport, not just those that moved
+        // This ensures stationary players are also included in the "pl" packet
+        // 
+        // Performance Note: O(n²) complexity per map - each receiver filters all players
+        // Acceptable for typical scenarios (<100 players per map)
+        // For optimization with larger player counts, consider spatial indexing (quadtree)
+        const visiblePlayers = allPlayersInMap.filter(player => {
+          // Check if within visible range (chunk)
+          return this.isPlayerInViewRange(receiver, player);
         });
         
-        // Se há atualizações visíveis, envia pacote "pl"
-        if (visibleUpdates.length > 0) {
-          const plData = this.makePlayerListData(visibleUpdates);
+        // If there are visible players, send "pl" packet with ALL of them
+        if (visiblePlayers.length > 0) {
+          const plData = this.makePlayerListData(visiblePlayers);
           
           const plPacket = {
             type: 'pl',
             data: plData
           };
           
-          // MUDANÇA: TODOS os jogadores recebem o pacote "pl" dentro de um "pkg"
-          // Formato: pkg > pl > p (conforme esperado pelo cliente)
-          // Nota: O double stringify é necessário pelo protocolo do cliente.
-          // Primeira camada: stringify do plPacket para string
-          // Segunda camada: stringify do array contendo a string do plPacket
+          // CHANGE: ALL players receive the "pl" packet inside a "pkg"
+          // Format: pkg > pl > p (as expected by the client)
+          // Note: Double stringify is required by the client protocol.
+          // First layer: stringify the plPacket to string
+          // Second layer: stringify the array containing the plPacket string
           const pkgPacket = {
             type: 'pkg',
             data: JSON.stringify([JSON.stringify(plPacket)])
