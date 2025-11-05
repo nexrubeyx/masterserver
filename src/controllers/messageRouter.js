@@ -143,8 +143,9 @@ export function createMessageRouter(env, logger, world) {
         // 7) Envia dados de receitas/crafting (build data)
         world.sendTo(player, makeRecipePacket());
         
-        // 8) Envia inventário inicial (vazio)
-        world.sendTo(player, { type: 'inv', data: [] });
+        // 8) Inicializa e envia inventário do jogador
+        world.itemService.initializeInventory(player);
+        world.itemService.sendInventoryToClient(player);
         
         // 8.5) Envia pacote 'game' com informações de premium e locks de costume
         // Este pacote é esperado pelo cliente para habilitar funcionalidades premium

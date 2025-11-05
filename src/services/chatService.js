@@ -95,6 +95,62 @@ export class ChatService {
       this.world.sendTo(player, { type: 'quit', text: 'bubye' });
       return;
     }
+    
+    // Comando /give - Dá item ao jogador (para testes/admin)
+    // Formato: /give <item_template> [quantidade]
+    if (text.startsWith('/give ')) {
+      const args = text.substring(6).trim().split(' ');
+      if (args.length < 1) {
+        this.world.sendTo(player, {
+          type: 'message',
+          text: this.formatMessageWithColor(
+            'Usage: /give <item_template> [quantity]',
+            '#FF0000'
+          )
+        });
+        return;
+      }
+      
+      const templateId = args[0];
+      const quantity = args[1] ? parseInt(args[1], 10) : 1;
+      
+      if (isNaN(quantity) || quantity < 1) {
+        this.world.sendTo(player, {
+          type: 'message',
+          text: this.formatMessageWithColor(
+            'Invalid quantity',
+            '#FF0000'
+          )
+        });
+        return;
+      }
+      
+      const result = this.world.itemService.addItem(player, templateId, quantity);
+      
+      this.world.sendTo(player, {
+        type: 'message',
+        text: this.formatMessageWithColor(
+          result.success ? `Added ${quantity}x ${templateId}` : result.message,
+          result.success ? '#00FF00' : '#FF0000'
+        )
+      });
+      return;
+    }
+    
+    // Comando /items - Lista templates de items disponíveis
+    if (text.startsWith('/items')) {
+      const { getAllItemTemplates } = await import('../models/Item.js');
+      const templates = getAllItemTemplates();
+      
+      this.world.sendTo(player, {
+        type: 'message',
+        text: this.formatMessageWithColor(
+          `Available items: ${templates.join(', ')}`,
+          '#FFFF00'
+        )
+      });
+      return;
+    }
 
     // === CHAT MESSAGES ===
     

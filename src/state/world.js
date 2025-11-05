@@ -24,6 +24,7 @@ import { PlayerService } from '../services/playerService.js';
 import { ChatService } from '../services/chatService.js';
 import { SecurityService } from '../services/securityService.js';
 import { ChunkValidationService } from '../services/chunkValidationService.js';
+import { ItemService } from '../services/itemService.js';
 
 export class World {
   /**
@@ -56,6 +57,9 @@ export class World {
 
     // Serviço de validação de chunks
     this.chunkValidationService = new ChunkValidationService(env, logger, this);
+
+    // Serviço que gerencia items e inventário
+    this.itemService = new ItemService(env, logger, this);
 
     // Serviço que gerencia objetos do mundo (stone, wood, bush, etc)
 
