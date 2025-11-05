@@ -91,7 +91,6 @@ export function makeCostumeDataPacket(user) {
     type: 'costumes',
     c: user.costumes || [],
     l: COSTUME_COSTS,
-    p: user.costumePercent || 0
   };
 }
 
