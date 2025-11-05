@@ -127,7 +127,11 @@ export function isDeepWater(tileId) {
 /**
  * Check if a tile is any type of water (shallow or deep)
  * 
- * @param {number} tileId - The tile ID to check
+ * Supports both numeric and variant notation:
+ * - Numbers: 21, 36, 215, 248, 325
+ * - Variant notation: "21_1", "36_1", "215_1"
+ * 
+ * @param {number|string} tileId - The tile ID to check (number or string with underscore)
  * @returns {boolean} True if tile is any water type
  */
 export function isWater(tileId) {

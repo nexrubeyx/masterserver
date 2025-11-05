@@ -514,7 +514,9 @@ export class PlayerService {
       // Unless player has canSwim capability (future feature)
       // Now supports both numeric tiles (215) and variant notation ("215_1")
       const tileAtTarget = map.tiles[ny]?.[nx];
-      if (isDeepWater(tileAtTarget)) {
+      
+      // Check if tile exists (not undefined/null due to out-of-bounds or missing data)
+      if (tileAtTarget !== undefined && tileAtTarget !== null && isDeepWater(tileAtTarget)) {
         // Check if player can swim (future: player.canSwim)
         const canSwim = player.canSwim || false;
         if (!canSwim) {
@@ -540,7 +542,8 @@ export class PlayerService {
       // === VALIDAÇÃO DE TILE (WALKABILITY) ===
       // Check if tile is walkable (not in NON_WALKABLE_TILES set)
       // Now supports both numeric tiles (209) and variant notation ("209_2")
-      if (!isWalkable(tileAtTarget)) {
+      // Only validate if tile exists (skip undefined/null which would indicate data issues)
+      if (tileAtTarget !== undefined && tileAtTarget !== null && !isWalkable(tileAtTarget)) {
         // Movement blocked by non-walkable tile - return to last valid position
         player.x = lastValidX;
         player.y = lastValidY;

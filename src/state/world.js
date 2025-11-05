@@ -646,7 +646,7 @@ const poofedTemplate = {
     try {
       // === INTERCEPTA PACOTES PKG PARA ADICIONAR PL ===
       // Se o pacote é do tipo 'pkg', adiciona automaticamente o pacote 'pl'
-      if (obj && obj.type === 'pkg') {
+      if (obj && obj.type === 'pkg' && typeof obj.data === 'string') {
         // Encontra a sessão deste WebSocket
         const session = this.sessions.get(ws);
         
@@ -674,12 +674,17 @@ const poofedTemplate = {
           let pkgData = [];
           try {
             pkgData = JSON.parse(obj.data);
+            // Verifica se é realmente um array
+            if (!Array.isArray(pkgData)) {
+              pkgData = [];
+            }
           } catch (e) {
             // Se falhar ao parsear, usa array vazio
             pkgData = [];
           }
           
           // Adiciona o pacote pl no início do array
+          // Mantém como string para consistência com o formato existente do pkg.data
           pkgData.unshift(JSON.stringify(plPacket));
           
           // Re-empacota os dados do pkg
