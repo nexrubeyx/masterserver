@@ -175,8 +175,14 @@ export class World {
       
       const plPacket = { type: 'pl', data: plData };
       
+      // MUDANÇA: Envia pl dentro de pkg (formato: pkg > pl > p)
+      const pkgPacket = {
+        type: 'pkg',
+        data: JSON.stringify([JSON.stringify(plPacket)])
+      };
+      
       // Envia para todos no mapa
-      this.broadcastInMap(mapId, plPacket);
+      this.broadcastInMap(mapId, pkgPacket);
     }
     
     this.logger.debug(
@@ -200,7 +206,15 @@ broadcastPlayersListToMap(mapId) {
       return JSON.stringify(snap);
     });
 
-    this.broadcastInMap(mapId, { type: 'pl', data });
+    const plPacket = { type: 'pl', data };
+    
+    // MUDANÇA: Envia pl dentro de pkg (formato: pkg > pl > p)
+    const pkgPacket = {
+      type: 'pkg',
+      data: JSON.stringify([JSON.stringify(plPacket)])
+    };
+    
+    this.broadcastInMap(mapId, pkgPacket);
   } catch (err) {
     this.logger?.warn({ err: err?.message, stack: err?.stack, mapId }, 'Falha ao broadcast pl');
   }
@@ -777,21 +791,14 @@ const poofedTemplate = {
           data: plData
         };
         
-        // MUDANÇA: Se o receiver é o novo jogador ou está incluído na lista,
-        // envia o pacote "pl" dentro de um "pkg" conforme esperado pelo cliente
-        const receiverIncluded = visiblePlayers.includes(receiver);
+        // MUDANÇA: TODOS os jogadores recebem o pacote "pl" dentro de um "pkg"
+        // Formato: pkg > pl > p (conforme esperado pelo cliente)
+        const pkgPacket = {
+          type: 'pkg',
+          data: JSON.stringify([JSON.stringify(plPacket)])
+        };
         
-        if (receiverIncluded) {
-          // Envia pl dentro de pkg para garantir sincronização adequada
-          const pkgPacket = {
-            type: 'pkg',
-            data: JSON.stringify([JSON.stringify(plPacket)])
-          };
-          this.sendTo(receiver, pkgPacket);
-        } else {
-          // Envia pl direto para outros jogadores
-          this.sendTo(receiver, plPacket);
-        }
+        this.sendTo(receiver, pkgPacket);
       }
     }
   }

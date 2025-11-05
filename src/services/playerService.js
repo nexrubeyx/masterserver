@@ -750,21 +750,14 @@ export class PlayerService {
             data: plData
           };
           
-          // MUDANÇA: Se o receiver está na lista de atualizações (está recebendo seu próprio snapshot),
-          // envia o pacote "pl" dentro de um "pkg" conforme esperado pelo cliente
-          const receiverWasUpdated = updatedPlayers.includes(receiver);
+          // MUDANÇA: TODOS os jogadores recebem o pacote "pl" dentro de um "pkg"
+          // Formato: pkg > pl > p (conforme esperado pelo cliente)
+          const pkgPacket = {
+            type: 'pkg',
+            data: JSON.stringify([JSON.stringify(plPacket)])
+          };
           
-          if (receiverWasUpdated) {
-            // Envia pl dentro de pkg para o próprio jogador
-            const pkgPacket = {
-              type: 'pkg',
-              data: JSON.stringify([JSON.stringify(plPacket)])
-            };
-            this.world.sendTo(receiver, pkgPacket);
-          } else {
-            // Envia pl direto para outros jogadores
-            this.world.sendTo(receiver, plPacket);
-          }
+          this.world.sendTo(receiver, pkgPacket);
         }
       }
     }
