@@ -734,8 +734,8 @@ export class PlayerService {
       for (const receiver of allPlayersInMap) {
         // Filtra jogadores atualizados que estão dentro do range visível do receiver
         const visibleUpdates = updatedPlayers.filter(updatedPlayer => {
-          // Não inclui o próprio jogador na lista
-          if (updatedPlayer === receiver) return false;
+          // MUDANÇA: Agora INCLUI o próprio jogador na lista se ele foi atualizado
+          // Isso resolve o bug de overlap e garante sincronização adequada
           
           // Verifica se está dentro do range visível
           return this.isPlayerInViewRange(receiver, updatedPlayer);
@@ -750,7 +750,17 @@ export class PlayerService {
             data: plData
           };
           
-          this.world.sendTo(receiver, plPacket);
+          // MUDANÇA: TODOS os jogadores recebem o pacote "pl" dentro de um "pkg"
+          // Formato: pkg > pl > p (conforme esperado pelo cliente)
+          // Nota: O double stringify é necessário pelo protocolo do cliente.
+          // Primeira camada: stringify do plPacket para string
+          // Segunda camada: stringify do array contendo a string do plPacket
+          const pkgPacket = {
+            type: 'pkg',
+            data: JSON.stringify([JSON.stringify(plPacket)])
+          };
+          
+          this.world.sendTo(receiver, pkgPacket);
         }
       }
     }
