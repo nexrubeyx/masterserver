@@ -11,6 +11,17 @@
  * Comandos do cliente são validados contra o estado do servidor.
  */
 
+// Tipos de violação de segurança
+const VIOLATION_TYPES = {
+  OUT_OF_BOUNDS: 'fora_dos_limites',
+  TELEPORT: 'teleportacao',
+  INVALID_DIRECTION: 'direcao_invalida',
+  TOO_FAST: 'movimento_rapido',
+  PATH_GAP: 'gap_no_caminho',
+  DESYNC: 'dessincronia',
+  SEVERE_DESYNC: 'dessincronia_severa'
+};
+
 export class SecurityService {
   /**
    * Construtor - Inicializa o serviço de segurança
@@ -45,6 +56,13 @@ export class SecurityService {
     
     // Limite de distância para registrar violação significativa (evita spam de logs)
     this.significantViolationThreshold = Number(env.SECURITY_SIGNIFICANT_VIOLATION_THRESHOLD || 2);
+    
+    // Multiplicador para calcular limite de dessincronia severa
+    // severeDesyncThreshold = max(coordTolerance * multiplier, minSevereThreshold)
+    this.severeDesyncMultiplier = Number(env.SECURITY_SEVERE_DESYNC_MULTIPLIER || 2);
+    
+    // Limite mínimo absoluto para dessincronia severa (tiles)
+    this.minSevereDesyncThreshold = Number(env.SECURITY_MIN_SEVERE_DESYNC_THRESHOLD || 10);
   }
 
   /**
@@ -117,7 +135,7 @@ export class SecurityService {
     }
 
     if (newX < 0 || newY < 0 || newX >= map.width || newY >= map.height) {
-      this._recordViolation(player, 'fora_dos_limites', { newX, newY, map: player.mapId });
+      this._recordViolation(player, VIOLATION_TYPES.OUT_OF_BOUNDS, { newX, newY, map: player.mapId });
       return { valid: false, reason: 'Posição fora dos limites do mapa' };
     }
 
@@ -126,7 +144,7 @@ export class SecurityService {
     const distance = this._calculateDistance(currentX, currentY, newX, newY);
     
     if (distance > this.maxMoveDistance) {
-      this._recordViolation(player, 'teleportacao', {
+      this._recordViolation(player, VIOLATION_TYPES.TELEPORT, {
         from: { x: currentX, y: currentY },
         to: { x: newX, y: newY },
         distance
@@ -144,7 +162,7 @@ export class SecurityService {
       const actualDy = newY - currentY;
 
       if (actualDx !== expectedDx || actualDy !== expectedDy) {
-        this._recordViolation(player, 'direcao_invalida', {
+        this._recordViolation(player, VIOLATION_TYPES.INVALID_DIRECTION, {
           direction,
           expected: { dx: expectedDx, dy: expectedDy },
           actual: { dx: actualDx, dy: actualDy }
@@ -158,7 +176,7 @@ export class SecurityService {
     const timeSinceLastMove = now - history.lastMoveTime;
     
     if (timeSinceLastMove < this.minMovementInterval) {
-      this._recordViolation(player, 'movimento_rapido', {
+      this._recordViolation(player, VIOLATION_TYPES.TOO_FAST, {
         interval: timeSinceLastMove,
         minInterval: this.minMovementInterval
       });
@@ -174,7 +192,7 @@ export class SecurityService {
       
       // Se há um gap maior que 1 tile da última posição registrada, algo está errado
       if (gapDistance > 1) {
-        this._recordViolation(player, 'gap_no_caminho', {
+        this._recordViolation(player, VIOLATION_TYPES.PATH_GAP, {
           lastRecorded: { x: lastPos.x, y: lastPos.y },
           current: { x: currentX, y: currentY },
           gap: gapDistance
@@ -199,10 +217,13 @@ export class SecurityService {
    * Esta função verifica se essas coordenadas correspondem ao
    * estado do servidor (autoridade do servidor).
    * 
-   * Com tolerância 0, implementamos strict server authority:
-   * - O servidor é a única fonte de verdade para posições
-   * - Qualquer diferença resulta em correção imediata
-   * - Previne completamente dessincronia de posições
+   * Estratégia de validação:
+   * - Pequenas diferenças (≤ tolerância): aceitas silenciosamente (lag de rede)
+   * - Diferenças moderadas (> tolerância, ≤ limite severo): logadas mas aceitas
+   * - Diferenças severas (> limite severo): logadas como violação e rejeitadas
+   * 
+   * Isso evita teleportação do personagem por dessincronia de rede normal,
+   * mas ainda previne tentativas reais de cheating.
    * 
    * @param {Object} player - Jogador
    * @param {number} clientX - Posição X enviada pelo cliente
@@ -216,6 +237,13 @@ export class SecurityService {
 
     // Usa tolerância configurada no construtor
     const tolerance = this.coordTolerance;
+    
+    // Limite para considerar dessincronia severa (possível cheating)
+    // Apenas dessincronias severas forçam correção do cliente
+    const severeDesyncThreshold = Math.max(
+      tolerance * this.severeDesyncMultiplier,
+      this.minSevereDesyncThreshold
+    );
 
     const serverX = player.x;
     const serverY = player.y;
@@ -227,37 +255,56 @@ export class SecurityService {
       return { valid: true, needsCorrection: false };
     }
 
-    // Se há qualquer diferença além da tolerância, precisa correção
-    // Com tolerância 0, qualquer diferença (distance > 0) resulta em needsCorrection = true
-    if (distance > tolerance) {
-      // Registra violação apenas se exceder limite significativo
-      // Isso evita spam de logs para pequenas diferenças causadas por lag
-      if (distance > this.significantViolationThreshold) {
-        this._recordViolation(player, 'dessincronia', {
+    // Se dentro da tolerância, aceita (lag normal de rede)
+    if (distance <= tolerance) {
+      return { valid: true, needsCorrection: false };
+    }
+
+    // Se exceder limite severo, é possível cheating - rejeita e força correção
+    if (distance > severeDesyncThreshold) {
+      this._recordViolation(player, VIOLATION_TYPES.SEVERE_DESYNC, {
+        client: { x: clientX, y: clientY },
+        server: { x: serverX, y: serverY },
+        distance,
+        tolerance,
+        severeThreshold: severeDesyncThreshold
+      });
+
+      this.logger.warn(
+        {
+          sessionId: player.sessionId,
           client: { x: clientX, y: clientY },
           server: { x: serverX, y: serverY },
           distance,
-          tolerance
-        });
-      }
+          severeThreshold: severeDesyncThreshold
+        },
+        'Dessincronia severa detectada - possível cheating - forçando correção'
+      );
 
+      return { 
+        valid: false, 
+        reason: `Dessincronia severa: distância ${distance} (limite: ${severeDesyncThreshold})`,
+        needsCorrection: true 
+      };
+    }
+
+    // Diferença moderada: loga para debug mas aceita (evita teleportação)
+    // Apenas registra violação se exceder limite de log
+    if (distance > this.significantViolationThreshold) {
       this.logger.debug(
         {
           sessionId: player.sessionId,
           client: { x: clientX, y: clientY },
           server: { x: serverX, y: serverY },
-          distance
+          distance,
+          tolerance
         },
-        'Coordenadas do cliente diferem do servidor - enviando correção'
+        'Dessincronia moderada detectada - aceitando para evitar teleportação'
       );
-
-      return { 
-        valid: false, 
-        reason: `Dessincronia detectada: distância ${distance} (max: ${tolerance})`,
-        needsCorrection: true 
-      };
     }
 
+    // Aceita comando apesar da dessincronia moderada
+    // Isso evita que o jogador seja teleportado devido a lag de rede
     return { valid: true, needsCorrection: false };
   }
 
