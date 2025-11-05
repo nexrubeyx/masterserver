@@ -457,6 +457,12 @@ export class PlayerService {
       const map = this.world.mapService.getMap(player.mapId);
       if (!map) break;  // Mapa não existe, para movimento
 
+      // === SALVA POSIÇÃO VÁLIDA ATUAL ===
+      // Guarda a última posição válida antes de tentar mover
+      // Se o movimento for bloqueado, o jogador voltará para esta posição
+      const lastValidX = player.x;
+      const lastValidY = player.y;
+
       // === CÁLCULO DA PRÓXIMA POSIÇÃO ===
       // Direção: 0=cima, 1=direita, 2=baixo, 3=esquerda
       const dx = (player.dir === 1 ? 1 : player.dir === 3 ? -1 : 0);
@@ -483,10 +489,23 @@ export class PlayerService {
 
       // === VALIDAÇÃO DE BORDAS ===
       // Bordas do mapa são INACESSÍVEIS nesta implementação
-      // Se tentar sair do mapa, bloqueia e não altera x/y
+      // Se tentar sair do mapa, retorna para última posição válida
       if (nx < 0 || ny < 0 || nx >= map.width || ny >= map.height) {
-        // Não move, não marca viewport, não envia nada
-        // Para o loop (movimento bloqueado)
+        // Retorna para a última posição válida
+        player.x = lastValidX;
+        player.y = lastValidY;
+        
+        // Para o movimento do jogador
+        this.stopMoving(player);
+        
+        // Marca viewport e snapshot como sujos para enviar atualização
+        this.markViewportDirty(player);
+        this.markSnapshotDirty(player);
+        
+        this.logger.debug(
+          { sessionId: player.sessionId, lastValid: {x: lastValidX, y: lastValidY}, attempted: {x: nx, y: ny} },
+          'Player returned to last valid position (map border)'
+        );
         break;
       }
 
@@ -499,7 +518,21 @@ export class PlayerService {
         // Check if player can swim (future: player.canSwim)
         const canSwim = player.canSwim || false;
         if (!canSwim) {
-          // Movement blocked by deep water
+          // Movement blocked by deep water - return to last valid position
+          player.x = lastValidX;
+          player.y = lastValidY;
+          
+          // Para o movimento do jogador
+          this.stopMoving(player);
+          
+          // Marca viewport e snapshot como sujos para enviar atualização
+          this.markViewportDirty(player);
+          this.markSnapshotDirty(player);
+          
+          this.logger.debug(
+            { sessionId: player.sessionId, lastValid: {x: lastValidX, y: lastValidY}, attempted: {x: nx, y: ny}, tile: tileAtTarget },
+            'Player returned to last valid position (deep water)'
+          );
           break;
         }
       }
@@ -508,10 +541,20 @@ export class PlayerService {
       // Check if tile is walkable (not in NON_WALKABLE_TILES set)
       // Now supports both numeric tiles (209) and variant notation ("209_2")
       if (!isWalkable(tileAtTarget)) {
-        // Movement blocked by non-walkable tile
+        // Movement blocked by non-walkable tile - return to last valid position
+        player.x = lastValidX;
+        player.y = lastValidY;
+        
+        // Para o movimento do jogador
+        this.stopMoving(player);
+        
+        // Marca viewport e snapshot como sujos para enviar atualização
+        this.markViewportDirty(player);
+        this.markSnapshotDirty(player);
+        
         this.logger.debug(
-          { sessionId: player.sessionId, tile: tileAtTarget, pos: {x: nx, y: ny} },
-          'Movement blocked by non-walkable tile'
+          { sessionId: player.sessionId, lastValid: {x: lastValidX, y: lastValidY}, attempted: {x: nx, y: ny}, tile: tileAtTarget },
+          'Player returned to last valid position (non-walkable tile)'
         );
         break;
       }
