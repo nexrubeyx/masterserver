@@ -75,16 +75,34 @@ export function isWater(tileId) {
  * Non-walkable tiles - tiles that players cannot walk on
  * These tiles will block movement unless the player has special abilities
  * 
- * Examples:
- * - Deep water tiles (already handled separately)
- * - Mountain/cliff tiles
- * - Wall tiles
- * - Lava tiles
+ * Categories of impassable tiles:
+ * - Walls and buildings (200-220)
+ * - Mountains and cliffs (180-199, 221-240)
+ * - Large rocks and boulders (241-260)
+ * - Special obstacles (261-280)
+ * 
+ * Note: Deep water tiles (215, 248, 325) are handled separately via isDeepWater()
+ * and player swim ability check in playerService
  */
 export const NON_WALKABLE_TILES = new Set([
-  // Deep water tiles are already handled by isDeepWater()
-  // Add additional non-walkable tiles here
-  // Example: 209, // Cave wall
+  // === WALLS AND BUILDINGS (200-220) ===
+  200, 201, 202, 203, 204, 205, 206, 207, 208, 209, // Wall tiles
+  210, 211, 212, 213, 214, // More walls (note: 215 is deep water, handled separately)
+  216, 217, 218, 219, 220, // Building tiles/lava/special walls
+  
+  // === MOUNTAINS AND CLIFFS (180-199, 221-240) ===
+  180, 181, 182, 183, 184, 185, 186, 187, 188, 189, // Mountain bases
+  190, 191, 192, 193, 194, 195, 196, 197, 198, 199, // Mountain peaks/cliffs
+  221, 222, 223, 224, 225, 226, 227, 228, 229, 230, // Cliff faces
+  231, 232, 233, 234, 235, 236, 237, 238, 239, 240, // High mountains
+  
+  // === LARGE ROCKS AND BOULDERS (241-260) ===
+  241, 242, 243, 244, 245, 246, 247, // Large rocks (note: 248 is DEEP_WATER_STATIC_2, handled separately)
+  249, 250, 251, 252, 253, 254, 255, 256, 257, 258, 259, 260, // Boulders
+  
+  // === SPECIAL OBSTACLES (261-280) ===
+  261, 262, 263, 264, 265, 266, 267, 268, 269, 270, // Fences/gates/barriers
+  271, 272, 273, 274, 275, 276, 277, 278, 279, 280, // Special obstacles
 ]);
 
 /**
