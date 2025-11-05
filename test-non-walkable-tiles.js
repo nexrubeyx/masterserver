@@ -99,7 +99,7 @@ console.log(`  isWalkable(9999): ${isWalkable(9999)} (expected: true unless in s
 
 // Test 6: Example tiles that should be impassable (if populated)
 console.log('\nTest 6: Example impassable tiles');
-const expectedImpassable = [209]; // Cave wall example from code comments
+const expectedImpassable = ["209_0"]; // Cave wall example from code comments
 for (const tileId of expectedImpassable) {
   if (NON_WALKABLE_TILES.has(tileId)) {
     console.log(`✓ Tile ${tileId} is correctly in NON_WALKABLE_TILES`);
@@ -108,9 +108,60 @@ for (const tileId of expectedImpassable) {
   }
 }
 
+// Test 6b: Verify backward compatibility with numeric format
+console.log('\nTest 6b: Backward compatibility with numeric tiles');
+const numericTestTiles = [209, 190, 250]; // Test that numeric format still works
+let numericCorrect = true;
+for (const tileId of numericTestTiles) {
+  if (isWalkable(tileId)) {
+    console.log(`✗ Numeric tile ${tileId} should be non-walkable but isWalkable() returns true`);
+    numericCorrect = false;
+  }
+}
+if (numericCorrect) {
+  console.log('✓ Numeric tiles are correctly identified as non-walkable (backward compatibility)');
+} else {
+  console.log('✗ Some numeric tiles are incorrectly identified as walkable');
+  process.exit(1);
+}
+
+// Test 6c: Verify string variant format (new feature)
+console.log('\nTest 6c: String variant format (e.g., "21_4")');
+console.log('  Testing that specific variants can be blocked:');
+console.log(`  isWalkable("209_0"): ${isWalkable("209_0")} (expected: false - variant _0 is blocked)`);
+console.log(`  isWalkable("209_2"): ${isWalkable("209_2")} (expected: true - variant _2 is NOT blocked)`);
+console.log(`  isWalkable("21_4"): ${isWalkable("21_4")} (expected: true - tile 21 is walkable)`);
+console.log(`  isWalkable("190_0"): ${isWalkable("190_0")} (expected: false - variant _0 is blocked)`);
+console.log(`  isWalkable("190_5"): ${isWalkable("190_5")} (expected: true - variant _5 is NOT blocked)`);
+
+const variantTests = [
+  { tile: "209_0", expected: false, desc: "blocked variant" },
+  { tile: "209_2", expected: true, desc: "non-blocked variant" },
+  { tile: "21_4", expected: true, desc: "walkable tile with variant" },
+  { tile: "190_0", expected: false, desc: "blocked mountain" },
+  { tile: "190_5", expected: true, desc: "non-blocked mountain variant" }
+];
+
+let variantsCorrect = true;
+for (const test of variantTests) {
+  const result = isWalkable(test.tile);
+  if (result !== test.expected) {
+    console.log(`✗ Tile ${test.tile} (${test.desc}): expected ${test.expected}, got ${result}`);
+    variantsCorrect = false;
+  }
+}
+if (variantsCorrect) {
+  console.log('✓ String variant format works correctly - specific variants can be blocked');
+} else {
+  console.log('✗ String variant format has issues');
+  process.exit(1);
+}
+
 console.log('\n=== All Tests Passed ===');
 console.log('\nSummary:');
 console.log(`- Total non-walkable tiles: ${NON_WALKABLE_TILES.size}`);
-console.log(`- System correctly blocks movement to tiles in NON_WALKABLE_TILES`);
+console.log(`- System now uses string format (e.g., "21_4") instead of integers`);
+console.log(`- Specific tile variants can be blocked (e.g., "209_0" blocked, "209_2" walkable)`);
+console.log(`- Backward compatibility maintained for numeric tiles`);
 console.log(`- Normal tiles remain walkable`);
 console.log(`- Deep water handling is separate from NON_WALKABLE_TILES`);
