@@ -451,11 +451,17 @@ export class PlayerService {
     // Flag para saber se houve movimento neste tick
     let moved = false;
     
-    // Processa múltiplos passos se acumulou tempo suficiente
-    // Exemplo: se acumulou 1500ms e stepMs é 750ms, faz 2 passos
-    while (player._accumMs >= stepMs) {
+    // Processa apenas UM passo por tick para evitar que o jogador pule múltiplas coordenadas
+    // Isso garante movimento sequencial tile-by-tile (A -> B -> C, não A -> C)
+    // Cap o acumulador para no máximo 2x stepMs para evitar acúmulo excessivo
+    player._accumMs = Math.min(player._accumMs, stepMs * 2);
+    
+    if (player._accumMs >= stepMs) {
       const map = this.world.mapService.getMap(player.mapId);
-      if (!map) break;  // Mapa não existe, para movimento
+      if (!map) {
+        // Mapa não existe, nada a fazer neste tick
+      } else {
+        // === PROCESSAMENTO DE MOVIMENTO ===
 
       // === SALVA POSIÇÃO VÁLIDA ATUAL ===
       // Guarda a última posição válida antes de tentar mover
@@ -470,136 +476,140 @@ export class PlayerService {
       const nx = player.x + dx;  // Próxima posição X
       const ny = player.y + dy;  // Próxima posição Y
 
-      // === VALIDAÇÃO DE SEGURANÇA ===
-      // Valida movimento usando o serviço de segurança
-      const validation = this.world.securityService.validateMovement(player, nx, ny, player.dir);
-      if (!validation.valid) {
-        // Movimento inválido - bloqueia e loga
-        this.logger.warn(
-          { sessionId: player.sessionId, reason: validation.reason, from: {x: player.x, y: player.y}, to: {x: nx, y: ny} },
-          'Movimento bloqueado por validação de segurança'
-        );
-        // Para o movimento do jogador
-        this.stopMoving(player);
-        break;
-      }
-
-      // Consome o tempo deste passo do acumulador
-      player._accumMs -= stepMs;
-
-      // === VALIDAÇÃO DE BORDAS ===
-      // Bordas do mapa são INACESSÍVEIS nesta implementação
-      // Se tentar sair do mapa, retorna para última posição válida
-      if (nx < 0 || ny < 0 || nx >= map.width || ny >= map.height) {
-        // Retorna para a última posição válida
-        player.x = lastValidX;
-        player.y = lastValidY;
-        
-        // Para o movimento do jogador
-        this.stopMoving(player);
-        
-        // Marca viewport e snapshot como sujos para enviar atualização
-        this.markViewportDirty(player);
-        this.markSnapshotDirty(player);
-        
-        this.logger.debug(
-          { sessionId: player.sessionId, lastValid: {x: lastValidX, y: lastValidY}, attempted: {x: nx, y: ny} },
-          'Player returned to last valid position (map border)'
-        );
-        break;
-      }
-
-      // === VALIDAÇÃO DE TILE (DEEP WATER) ===
-      // Deep water tiles (215, 248, 325) are blocked by default
-      // Unless player has canSwim capability (future feature)
-      // Now supports both numeric tiles (215) and variant notation ("215_1")
-      const tileAtTarget = map.tiles[ny]?.[nx];
-      
-      // Check if tile exists (not undefined/null due to out-of-bounds or missing data)
-      if (tileAtTarget !== undefined && tileAtTarget !== null && isDeepWater(tileAtTarget)) {
-        // Check if player can swim (future: player.canSwim)
-        const canSwim = player.canSwim || false;
-        if (!canSwim) {
-          // Movement blocked by deep water - return to last valid position
-          player.x = lastValidX;
-          player.y = lastValidY;
-          
+        // === VALIDAÇÃO DE SEGURANÇA ===
+        // Valida movimento usando o serviço de segurança
+        const validation = this.world.securityService.validateMovement(player, nx, ny, player.dir);
+        if (!validation.valid) {
+          // Movimento inválido - bloqueia e loga
+          this.logger.warn(
+            { sessionId: player.sessionId, reason: validation.reason, from: {x: player.x, y: player.y}, to: {x: nx, y: ny} },
+            'Movimento bloqueado por validação de segurança'
+          );
           // Para o movimento do jogador
           this.stopMoving(player);
-          
-          // Marca viewport e snapshot como sujos para enviar atualização
-          this.markViewportDirty(player);
-          this.markSnapshotDirty(player);
-          
-          this.logger.debug(
-            { sessionId: player.sessionId, lastValid: {x: lastValidX, y: lastValidY}, attempted: {x: nx, y: ny}, tile: tileAtTarget },
-            'Player returned to last valid position (deep water)'
-          );
-          break;
-        }
-      }
-      
-      // === VALIDAÇÃO DE TILE (WALKABILITY) ===
-      // Check if tile is walkable (not in NON_WALKABLE_TILES set)
-      // Now supports both numeric tiles (209) and variant notation ("209_2")
-      // Only validate if tile exists (skip undefined/null which would indicate data issues)
-      if (tileAtTarget !== undefined && tileAtTarget !== null && !isWalkable(tileAtTarget)) {
-        // Movement blocked by non-walkable tile - return to last valid position
-        player.x = lastValidX;
-        player.y = lastValidY;
-        
-        // Para o movimento do jogador
-        this.stopMoving(player);
-        
-        // Marca viewport e snapshot como sujos para enviar atualização
-        this.markViewportDirty(player);
-        this.markSnapshotDirty(player);
-        
-        this.logger.debug(
-          { sessionId: player.sessionId, lastValid: {x: lastValidX, y: lastValidY}, attempted: {x: nx, y: ny}, tile: tileAtTarget },
-          'Player returned to last valid position (non-walkable tile)'
-        );
-        break;
-      }
+        } else {
+          // Consome o tempo deste passo do acumulador
+          player._accumMs -= stepMs;
 
-      // === MOVIMENTO VÁLIDO ===
-      // Passo está dentro do mapa, aplica movimento
-      player.x = nx;
-      player.y = ny;
-      
-      // === APLICAR SPEED MODIFIER DO TILE ===
-      // Apply speed modifier based on the tile the player is now standing on
-      // This affects the next movement step
-      const currentTile = map.tiles[player.y]?.[player.x];
-      if (Number.isFinite(currentTile)) {
-        const modifiedSpeed = getModifiedSpeed(player.baseSpeed || DEFAULT_PLAYER_SPEED, currentTile);
-        // Store both base speed and current modified speed
-        if (!player.baseSpeed) {
-          player.baseSpeed = player.speed || DEFAULT_PLAYER_SPEED;
-        }
-        player.speed = modifiedSpeed;
-        
-        // Log if speed was modified (for debugging)
-        if (modifiedSpeed !== player.baseSpeed) {
-          this.logger.debug(
-            { 
-              sessionId: player.sessionId, 
-              tile: currentTile, 
-              baseSpeed: player.baseSpeed,
-              modifiedSpeed: modifiedSpeed 
-            },
-            'Speed modifier applied'
-          );
-        }
-      }
+          // === VALIDAÇÃO DE BORDAS ===
+          // Bordas do mapa são INACESSÍVEIS nesta implementação
+          // Se tentar sair do mapa, retorna para última posição válida
+          if (nx < 0 || ny < 0 || nx >= map.width || ny >= map.height) {
+            // Retorna para a última posição válida
+            player.x = lastValidX;
+            player.y = lastValidY;
+            
+            // Para o movimento do jogador
+            this.stopMoving(player);
+            
+            // Marca viewport e snapshot como sujos para enviar atualização
+            this.markViewportDirty(player);
+            this.markSnapshotDirty(player);
+            
+            this.logger.debug(
+              { sessionId: player.sessionId, lastValid: {x: lastValidX, y: lastValidY}, attempted: {x: nx, y: ny} },
+              'Player returned to last valid position (map border)'
+            );
+          } else {
+            // === VALIDAÇÃO DE TILE (DEEP WATER) ===
+            // Deep water tiles (215, 248, 325) are blocked by default
+            // Unless player has canSwim capability (future feature)
+            // Now supports both numeric tiles (215) and variant notation ("215_1")
+            const tileAtTarget = map.tiles[ny]?.[nx];
+            
+            let movementBlocked = false;
+            
+            // Check if tile exists (not undefined/null due to out-of-bounds or missing data)
+            if (tileAtTarget !== undefined && tileAtTarget !== null && isDeepWater(tileAtTarget)) {
+              // Check if player can swim (future: player.canSwim)
+              const canSwim = player.canSwim || false;
+              if (!canSwim) {
+                // Movement blocked by deep water - return to last valid position
+                player.x = lastValidX;
+                player.y = lastValidY;
+                
+                // Para o movimento do jogador
+                this.stopMoving(player);
+                
+                // Marca viewport e snapshot como sujos para enviar atualização
+                this.markViewportDirty(player);
+                this.markSnapshotDirty(player);
+                
+                this.logger.debug(
+                  { sessionId: player.sessionId, lastValid: {x: lastValidX, y: lastValidY}, attempted: {x: nx, y: ny}, tile: tileAtTarget },
+                  'Player returned to last valid position (deep water)'
+                );
+                movementBlocked = true;
+              }
+            }
+            
+            // === VALIDAÇÃO DE TILE (WALKABILITY) ===
+            // Check if tile is walkable (not in NON_WALKABLE_TILES set)
+            // Now supports both numeric tiles (209) and variant notation ("209_2")
+            // Only validate if tile exists (skip undefined/null which would indicate data issues)
+            if (!movementBlocked && tileAtTarget !== undefined && tileAtTarget !== null && !isWalkable(tileAtTarget)) {
+              // Movement blocked by non-walkable tile - return to last valid position
+              player.x = lastValidX;
+              player.y = lastValidY;
+              
+              // Para o movimento do jogador
+              this.stopMoving(player);
+              
+              // Marca viewport e snapshot como sujos para enviar atualização
+              this.markViewportDirty(player);
+              this.markSnapshotDirty(player);
+              
+              this.logger.debug(
+                { sessionId: player.sessionId, lastValid: {x: lastValidX, y: lastValidY}, attempted: {x: nx, y: ny}, tile: tileAtTarget },
+                'Player returned to last valid position (non-walkable tile)'
+              );
+              movementBlocked = true;
+            }
 
-      // Marca viewport como sujo para enviar viewport atualizado
-      this.markViewportDirty(player);
-      moved = true;
+            // === MOVIMENTO VÁLIDO ===
+            // Se não foi bloqueado, aplica movimento
+            if (!movementBlocked) {
+              // Passo está dentro do mapa, aplica movimento
+              player.x = nx;
+              player.y = ny;
+              
+              // === APLICAR SPEED MODIFIER DO TILE ===
+              // Apply speed modifier based on the tile the player is now standing on
+              // This affects the next movement step
+              const currentTile = map.tiles[player.y]?.[player.x];
+              if (Number.isFinite(currentTile)) {
+                const modifiedSpeed = getModifiedSpeed(player.baseSpeed || DEFAULT_PLAYER_SPEED, currentTile);
+                // Store both base speed and current modified speed
+                if (!player.baseSpeed) {
+                  player.baseSpeed = player.speed || DEFAULT_PLAYER_SPEED;
+                }
+                player.speed = modifiedSpeed;
+                
+                // Log if speed was modified (for debugging)
+                if (modifiedSpeed !== player.baseSpeed) {
+                  this.logger.debug(
+                    { 
+                      sessionId: player.sessionId, 
+                      tile: currentTile, 
+                      baseSpeed: player.baseSpeed,
+                      modifiedSpeed: modifiedSpeed 
+                    },
+                    'Speed modifier applied'
+                  );
+                }
+              }
 
-      // IMPORTANTE: Não há transição entre mapas nesta implementação
-      // Se precisasse, chamaria checkExitAndTransition aqui
-    }
+              // Marca viewport como sujo para enviar viewport atualizado
+              this.markViewportDirty(player);
+              moved = true;
+            }
+          }
+        }
+
+        // IMPORTANTE: Não há transição entre mapas nesta implementação
+        // Se precisasse, chamaria checkExitAndTransition aqui
+      } // Fim do else (processamento de movimento)
+    } // Fim do if (processamento de 1 tile por tick)
 
     // === PASSO 3: Flush atualizações se houve movimento ===
     if (moved) {
