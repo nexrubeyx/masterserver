@@ -21,6 +21,58 @@
  */
 export const DEFAULT_PLAYER_SPEED = 750;
 
+// === TILE ID PARSING ===
+/**
+ * Parse tile ID from various formats
+ * 
+ * Tiles can be in two formats:
+ * - Simple number: 21, 36, 209
+ * - Variant notation: "21_1", "36_1", "209_2"
+ * 
+ * This function extracts the base tile ID from either format.
+ * 
+ * @param {number|string} tile - The tile value (number or string with underscore)
+ * @returns {number|null} Base tile ID as number, or null if invalid
+ * 
+ * Examples:
+ * - parseTileId(21) -> 21
+ * - parseTileId("36_1") -> 36
+ * - parseTileId("209_2") -> 209
+ * - parseTileId("invalid") -> null
+ */
+export function parseTileId(tile) {
+  // Handle numeric tiles
+  if (typeof tile === 'number') {
+    return Number.isFinite(tile) ? tile : null;
+  }
+  
+  // Handle string tiles
+  if (typeof tile === 'string') {
+    // Empty string is invalid
+    if (tile === '') {
+      return null;
+    }
+    
+    // Check if tile has underscore notation (e.g., "21_1", "36_1")
+    if (tile.includes('_')) {
+      const parts = tile.split('_');
+      // If first part is empty (e.g., "_1"), it's invalid
+      if (parts[0] === '') {
+        return null;
+      }
+      const baseTile = Number(parts[0]);
+      return Number.isFinite(baseTile) ? baseTile : null;
+    }
+    
+    // Try to parse as plain number string
+    const tileNum = Number(tile);
+    return Number.isFinite(tileNum) ? tileNum : null;
+  }
+  
+  // Invalid type
+  return null;
+}
+
 // === SHALLOW WATER TILES ===
 // Category 1 in client's get_edge/tile_sprite
 export const SHALLOW_WATER_1 = 36;
@@ -39,31 +91,47 @@ export const DEEP_WATER_ANIMATED = 325;
 /**
  * Check if a tile is shallow water
  * 
- * @param {number} tileId - The tile ID to check
+ * Supports both numeric and variant notation:
+ * - Numbers: 21, 36
+ * - Variant notation: "21_1", "36_1"
+ * 
+ * @param {number|string} tileId - The tile ID to check (number or string with underscore)
  * @returns {boolean} True if tile is shallow water (36 or 21)
  */
 export function isShallowWater(tileId) {
-  return tileId === SHALLOW_WATER_1 || tileId === SHALLOW_WATER_2;
+  const baseTileId = parseTileId(tileId);
+  if (baseTileId === null) return false;
+  return baseTileId === SHALLOW_WATER_1 || baseTileId === SHALLOW_WATER_2;
 }
 
 /**
  * Check if a tile is deep water (static or animated)
  * 
- * @param {number} tileId - The tile ID to check
+ * Supports both numeric and variant notation:
+ * - Numbers: 215, 248, 325
+ * - Variant notation: "215_1", "248_2", "325_1"
+ * 
+ * @param {number|string} tileId - The tile ID to check (number or string with underscore)
  * @returns {boolean} True if tile is deep water (215, 248, or 325)
  */
 export function isDeepWater(tileId) {
+  const baseTileId = parseTileId(tileId);
+  if (baseTileId === null) return false;
   return (
-    tileId === DEEP_WATER_STATIC_1 ||
-    tileId === DEEP_WATER_STATIC_2 ||
-    tileId === DEEP_WATER_ANIMATED
+    baseTileId === DEEP_WATER_STATIC_1 ||
+    baseTileId === DEEP_WATER_STATIC_2 ||
+    baseTileId === DEEP_WATER_ANIMATED
   );
 }
 
 /**
  * Check if a tile is any type of water (shallow or deep)
  * 
- * @param {number} tileId - The tile ID to check
+ * Supports both numeric and variant notation:
+ * - Numbers: 21, 36, 215, 248, 325
+ * - Variant notation: "21_1", "36_1", "215_1"
+ * 
+ * @param {number|string} tileId - The tile ID to check (number or string with underscore)
  * @returns {boolean} True if tile is any water type
  */
 export function isWater(tileId) {
@@ -108,12 +176,23 @@ export const NON_WALKABLE_TILES = new Set([
 /**
  * Check if a tile is walkable
  * 
- * @param {number} tileId - The tile ID to check
+ * Supports both numeric and variant notation:
+ * - Numbers: 21, 36, 209
+ * - Variant notation: "21_1", "36_1", "209_2"
+ * 
+ * @param {number|string} tileId - The tile ID to check (number or string with underscore)
  * @returns {boolean} True if tile can be walked on
  */
 export function isWalkable(tileId) {
+  const baseTileId = parseTileId(tileId);
+  
+  // If parsing failed, treat as walkable (fail-safe approach)
+  if (baseTileId === null) {
+    return true;
+  }
+  
   // Non-walkable set takes precedence
-  if (NON_WALKABLE_TILES.has(tileId)) {
+  if (NON_WALKABLE_TILES.has(baseTileId)) {
     return false;
   }
   
@@ -150,22 +229,33 @@ export const TILE_SPEED_MODIFIERS = new Map([
 /**
  * Get speed multiplier for a tile
  * 
- * @param {number} tileId - The tile ID to check
+ * Supports both numeric and variant notation:
+ * - Numbers: 21, 36, 209
+ * - Variant notation: "21_1", "36_1", "209_2"
+ * 
+ * @param {number|string} tileId - The tile ID to check (number or string with underscore)
  * @returns {number} Speed multiplier (1.0 = normal speed)
  */
 export function getTileSpeedModifier(tileId) {
+  const baseTileId = parseTileId(tileId);
+  
   // Handle invalid input gracefully
-  if (!Number.isFinite(tileId)) {
+  if (baseTileId === null) {
     return 1.0;
   }
-  return TILE_SPEED_MODIFIERS.get(tileId) || 1.0;
+  
+  return TILE_SPEED_MODIFIERS.get(baseTileId) || 1.0;
 }
 
 /**
  * Calculate modified speed based on tile
  * 
+ * Supports both numeric and variant notation:
+ * - Numbers: 21, 36, 209
+ * - Variant notation: "21_1", "36_1", "209_2"
+ * 
  * @param {number} baseSpeed - Base speed in ms per tile
- * @param {number} tileId - The tile ID the player is on
+ * @param {number|string} tileId - The tile ID the player is on (number or string with underscore)
  * @returns {number} Modified speed in ms per tile
  * 
  * Note: Lower speed multiplier = slower movement = MORE time per tile
@@ -176,11 +266,13 @@ export function getModifiedSpeed(baseSpeed, tileId) {
   if (!Number.isFinite(baseSpeed) || baseSpeed <= 0) {
     baseSpeed = DEFAULT_PLAYER_SPEED;
   }
-  if (!Number.isFinite(tileId)) {
+  
+  const baseTileId = parseTileId(tileId);
+  if (baseTileId === null) {
     return baseSpeed;
   }
   
-  const multiplier = getTileSpeedModifier(tileId);
+  const multiplier = getTileSpeedModifier(baseTileId);
   // Divide by multiplier because:
   // - If multiplier is 2.0 (faster), speed should be halved (less time per tile)
   // - If multiplier is 0.5 (slower), speed should be doubled (more time per tile)

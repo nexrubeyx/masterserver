@@ -625,6 +625,12 @@ const poofedTemplate = {
    * Função de baixo nível que serializa JSON e envia pelo socket.
    * Inclui proteções contra erros e backpressure.
    * 
+   * Feature especial: Auto-inclusão de pl packet em pkg packets
+   * - Quando um pacote pkg é enviado, automaticamente adiciona
+   *   o pacote pl (player list) com os jogadores visíveis
+   * - Garante que o cliente sempre receba a lista atualizada de jogadores
+   * - O pacote pl é inserido no início do array de dados do pkg
+   * 
    * @param {WebSocket} ws - Conexão WebSocket
    * @param {Object} obj - Objeto a ser enviado (será convertido para JSON)
    * 
@@ -638,6 +644,62 @@ const poofedTemplate = {
     if (ws.readyState !== 1) return;
 
     try {
+      // === INTERCEPTA PACOTES PKG PARA ADICIONAR PL ===
+      // Se o pacote é do tipo 'pkg', adiciona automaticamente o pacote 'pl'
+      if (obj && obj.type === 'pkg' && typeof obj.data === 'string') {
+        // Encontra a sessão deste WebSocket
+        const session = this.sessions.get(ws);
+        
+        if (session && session.player) {
+          const player = session.player;
+          
+          // Obtém todos os jogadores no mesmo mapa
+          const allPlayersInMap = this.getPlayersInMap(player.mapId);
+          
+          // Filtra apenas jogadores visíveis (dentro do range de visão)
+          const visiblePlayers = allPlayersInMap.filter(p => {
+            return this.playerService.isPlayerInViewRange(player, p);
+          });
+          
+          // Cria dados da lista de jogadores
+          const plData = this.playerService.makePlayerListData(visiblePlayers);
+          
+          // Cria pacote pl
+          const plPacket = {
+            type: 'pl',
+            data: plData
+          };
+          
+          // Desempacota os dados do pkg existente
+          let pkgData = [];
+          try {
+            pkgData = JSON.parse(obj.data);
+            // Verifica se é realmente um array
+            if (!Array.isArray(pkgData)) {
+              pkgData = [];
+            }
+          } catch (e) {
+            // Se falhar ao parsear, usa array vazio
+            pkgData = [];
+          }
+          
+          // Adiciona o pacote pl no início do array
+          // Mantém como string para consistência com o formato existente do pkg.data
+          pkgData.unshift(JSON.stringify(plPacket));
+          
+          // Re-empacota os dados do pkg
+          obj = {
+            type: 'pkg',
+            data: JSON.stringify(pkgData)
+          };
+          
+          this.logger.debug(
+            { sessionId: player.sessionId, visiblePlayers: visiblePlayers.length },
+            'Auto-incluído pl packet em pkg packet'
+          );
+        }
+      }
+      
       // Backpressure guard - se buffer tem mais de 1MB, pula
       // Isso previne acumular mensagens se cliente está lento
       if (ws.bufferedAmount > 1_000_000) return;
