@@ -31,7 +31,7 @@ Implementa autenticação (login/guest), mapa em JSON com vizinhos (transição 
 - **Chat**: Sistema de mensagens entre jogadores
 - **Água Profunda**: Sistema completo de água com animação e colisão (tiles 36, 248, 325)
 - **Edge Blending**: Perfeita paridade com renderização do cliente
-- **Inventário**: Estrutura básica de inventário (extensível)
+- **Inventário**: Estrutura básica de inventário (extensível) com items iniciais para novos jogadores
 
 ## Requisitos
 - Ubuntu 24.04

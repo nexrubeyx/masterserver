@@ -60,10 +60,11 @@ export function createMessageRouter(env, logger, world) {
       // Processa login com credenciais ou entrada como guest
       case 'login':
       case 'guest': {
+        let auth;
         try {
           // Autentica usuário e carrega/cria personagem
           // Passa world para verificar jogadores dormindo antes de criar/carregar do banco
-          const auth = await handleLoginOrCreate(env, logger, world, packet);
+          auth = await handleLoginOrCreate(env, logger, world, packet);
           
           // Anexa sessão do jogador à conexão WebSocket
           world.attachSession(ws, { user: auth.user, player: auth.player });
@@ -145,6 +146,12 @@ export function createMessageRouter(env, logger, world) {
         
         // 8) Inicializa e envia inventário do jogador
         world.itemService.initializeInventory(player);
+        
+        // Se é um jogador novo, dá items iniciais
+        if (auth.created) {
+          world.itemService.giveStarterItems(player);
+        }
+        
         world.itemService.sendInventoryToClient(player);
         
         // 8.5) Envia pacote 'game' com informações de premium e locks de costume
