@@ -288,45 +288,28 @@ broadcastPlayersListToMap(mapId) {
    * - speed, moving, dir: estado de movimento
    * - _viewDirty, _snapshotDirty: flags de rede
    */
+  /**
+   * Anexa uma sessão de jogador ao mundo
+   * 
+   * Chamado após login bem-sucedido para registrar o jogador no mundo.
+   * Inicializa todos os campos de estado necessários para o jogador.
+   * 
+   * IMPORTANTE: Se já existe uma sessão ativa para este userId, ela será
+   * desconectada para garantir que cada usuário tenha apenas uma sessão ativa.
+   * Isso previne jogadores duplicados no mapa.
+   * 
+   * @param {WebSocket} ws - Conexão WebSocket do jogador
+   * @param {Object} params - Dados da sessão
+   * @param {Object} params.user - Documento do usuário
+   * @param {Object} params.player - Documento do personagem
+   * 
+   * Campos inicializados no player:
+   * - sessionId: ID único da sessão
+   * - name, level: dados básicos
+   * - speed, moving, dir: estado de movimento
+   * - _viewDirty, _snapshotDirty: flags de rede
+   */
   attachSession(ws, { user, player }) {
-    // === VERIFICAÇÃO DE JOGADOR DORMINDO ===
-    // Se este usuário tem um jogador dormindo, cancela o timer e reutiliza o jogador
-    let wasWakingFromSleep = false;
-    let wakePlayerMapId = null;
-    let wakePlayerName = null;
-    
-    for (const [sessionId, sleepData] of this.sleepingPlayers) {
-      if (String(sleepData.user?._id) === String(user?._id)) {
-        // Cancela o timer de desconexão
-        if (sleepData.timeoutId) {
-          clearTimeout(sleepData.timeoutId);
-        }
-        
-        // Remove do mapa de sleeping
-        this.sleepingPlayers.delete(sessionId);
-        
-        // Reutiliza o jogador dormindo (mantém posição e estado)
-        const wakingPlayer = sleepData.player;
-        wakingPlayer.sleeping = false;
-        
-        // Atualiza o player para usar o estado salvo
-        Object.assign(player, wakingPlayer);
-        
-        // Marca para enviar mensagem depois
-        wasWakingFromSleep = true;
-        wakePlayerMapId = player.mapId;
-        wakePlayerName = (player?.name && String(player.name)) || `guest-${sessionId}`;
-        
-        // Log
-        this.logger?.info(
-          { sessionId, name: player?.name, userId: user?._id },
-          'Jogador reconectado durante período de sleep'
-        );
-        
-        break;
-      }
-    }
-
     // === PREVENÇÃO DE MÚLTIPLAS SESSÕES ===
     // Procura se já existe uma sessão ativa para este userId
     // Se existir, desconecta a antiga (mantém apenas a mais recente)
@@ -385,10 +368,13 @@ broadcastPlayersListToMap(mapId) {
 
     this.logger.info({ user: user.username, sessionId, mapId: player.mapId }, 'Sessão anexada');
 
-    // Se o jogador estava dormindo, envia mensagem de "wake up"
-    if (wasWakingFromSleep && wakePlayerMapId && wakePlayerName) {
-      const wakeText = `<span style='color:#99ff99'>${wakePlayerName} wakes up.</span>`;
+    // Verifica se o jogador estava dormindo e envia mensagem de "wake up"
+    // NOTA: Este código não é mais necessário pois a lógica foi movida para authService
+    // No entanto, mantemos uma verificação simples caso o player tenha a flag sleeping
+    if (player.sleeping === false && player._wasWakingFromSleep) {
+      const wakeText = `<span style='color:#99ff99'>${player.name} wakes up.</span>`;
       this.sendToOthersInMap(player, { type: 'message', text: wakeText });
+      delete player._wasWakingFromSleep; // Limpa flag temporária
     }
 
     // Broadcast imediato do "pl" para garantir que todos os clientes no mapa
