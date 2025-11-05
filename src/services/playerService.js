@@ -121,6 +121,23 @@ export class PlayerService {
   }
 
   /**
+   * Cria array de snapshots serializados para pacote "pl"
+   * 
+   * Helper method que converte uma lista de jogadores em um array
+   * de strings JSON contendo seus snapshots, no formato esperado
+   * pelo campo "data" do pacote "pl".
+   * 
+   * @param {Array<Object>} players - Lista de jogadores
+   * @returns {Array<string>} Array de snapshots serializados
+   */
+  makePlayerListData(players) {
+    return players.map(p => {
+      const snapshot = this.makePlayerSnapshotPacket(p);
+      return JSON.stringify(snapshot);
+    });
+  }
+
+  /**
    * Calcula origem do viewport para um jogador centralizado na posição do player
    * 
    * O viewport é a área retangular de tiles visíveis ao redor do jogador.
@@ -374,7 +391,7 @@ export class PlayerService {
    * @param {boolean} immediate - Se true, ignora rate limit e envia imediatamente
    * 
    * Marca o jogador para ser incluído no próximo batch de snapshots.
-   * Os snapshots são enviados em formato "pl" (player list) ao invés de
+   * Os snapshots são enviados em formato "pl" (player list) em vez de
    * pacotes "p" individuais para otimizar a rede.
    * 
    * O parâmetro 'immediate' é usado quando precisamos garantir
@@ -726,10 +743,7 @@ export class PlayerService {
         
         // Se há atualizações visíveis, envia pacote "pl"
         if (visibleUpdates.length > 0) {
-          const plData = visibleUpdates.map(p => {
-            const snapshot = this.makePlayerSnapshotPacket(p);
-            return JSON.stringify(snapshot);
-          });
+          const plData = this.makePlayerListData(visibleUpdates);
           
           const plPacket = {
             type: 'pl',

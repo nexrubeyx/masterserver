@@ -127,7 +127,7 @@ export class World {
         this.playerService.tickPlayer(player, dt);
       }
       
-      // Envia todos os snapshots pendentes em lote (formato "pl")
+      // Envía todos os snapshots pendentes em lote (formato "pl")
       this.playerService.flushPendingSnapshots();
       
       // RECONCILIAÇÃO DESABILITADA:
@@ -759,9 +759,6 @@ const poofedTemplate = {
 
     // 3) Envia pacote "pl" para TODOS os jogadores no mapa
     // Isso garante que todos tenham a lista completa e atualizada de jogadores
-    const allPlayers = sameMap.filter(p => this.playerService.isPlayerInViewRange(newPlayer, p));
-    
-    // Para cada jogador no mapa, envia lista de jogadores visíveis
     for (const receiver of sameMap) {
       // Filtra jogadores visíveis para este receiver
       const visiblePlayers = sameMap.filter(p => {
@@ -770,11 +767,8 @@ const poofedTemplate = {
       });
       
       if (visiblePlayers.length > 0) {
-        // Cria pacote "pl" com todos os jogadores visíveis
-        const plData = visiblePlayers.map(p => {
-          const snapshot = this.playerService.makePlayerSnapshotPacket(p);
-          return JSON.stringify(snapshot);
-        });
+        // Cria pacote "pl" com todos os jogadores visíveis usando helper method
+        const plData = this.playerService.makePlayerListData(visiblePlayers);
         
         const plPacket = {
           type: 'pl',
