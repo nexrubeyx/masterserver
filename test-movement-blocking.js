@@ -3,12 +3,13 @@
  * 
  * This test verifies that:
  * 1. Players can move to walkable tiles
- * 2. Players cannot move to non-walkable tiles
+ * 2. Players cannot move to non-walkable tiles (using both numeric and string formats)
  * 3. Movement validation works correctly with the tile system
  */
 
 import { 
   NON_WALKABLE_TILES,
+  isWalkable,
   DEEP_WATER_STATIC_1,
   DEEP_WATER_STATIC_2
 } from './src/constants/tiles.js';
@@ -49,11 +50,11 @@ console.log('Test 1: Movement to walkable tiles should succeed');
 const map1 = createTestMap();
 const walkableTile = map1.tiles[3][3];
 console.log(`  Tile at (3, 3): ${walkableTile}`);
-console.log(`  Is in NON_WALKABLE_TILES: ${NON_WALKABLE_TILES.has(walkableTile)}`);
-if (!NON_WALKABLE_TILES.has(walkableTile)) {
-  console.log('✓ Walkable tile is correctly not in NON_WALKABLE_TILES');
+console.log(`  isWalkable(${walkableTile}): ${isWalkable(walkableTile)}`);
+if (isWalkable(walkableTile)) {
+  console.log('✓ Walkable tile is correctly identified as walkable');
 } else {
-  console.log('✗ ERROR: Walkable tile should not be in NON_WALKABLE_TILES');
+  console.log('✗ ERROR: Walkable tile should be walkable');
   process.exit(1);
 }
 
@@ -61,11 +62,11 @@ if (!NON_WALKABLE_TILES.has(walkableTile)) {
 console.log('\nTest 2: Movement to wall tile (209) should be blocked');
 const wallTile = map1.tiles[5][5];
 console.log(`  Tile at (5, 5): ${wallTile}`);
-console.log(`  Is in NON_WALKABLE_TILES: ${NON_WALKABLE_TILES.has(wallTile)}`);
-if (NON_WALKABLE_TILES.has(wallTile)) {
-  console.log('✓ Wall tile is correctly in NON_WALKABLE_TILES');
+console.log(`  isWalkable(${wallTile}): ${isWalkable(wallTile)}`);
+if (!isWalkable(wallTile)) {
+  console.log('✓ Wall tile is correctly identified as non-walkable');
 } else {
-  console.log('✗ ERROR: Wall tile should be in NON_WALKABLE_TILES');
+  console.log('✗ ERROR: Wall tile should be non-walkable');
   process.exit(1);
 }
 
@@ -73,11 +74,11 @@ if (NON_WALKABLE_TILES.has(wallTile)) {
 console.log('\nTest 3: Movement to mountain tile (190) should be blocked');
 const mountainTile = map1.tiles[5][6];
 console.log(`  Tile at (5, 6): ${mountainTile}`);
-console.log(`  Is in NON_WALKABLE_TILES: ${NON_WALKABLE_TILES.has(mountainTile)}`);
-if (NON_WALKABLE_TILES.has(mountainTile)) {
-  console.log('✓ Mountain tile is correctly in NON_WALKABLE_TILES');
+console.log(`  isWalkable(${mountainTile}): ${isWalkable(mountainTile)}`);
+if (!isWalkable(mountainTile)) {
+  console.log('✓ Mountain tile is correctly identified as non-walkable');
 } else {
-  console.log('✗ ERROR: Mountain tile should be in NON_WALKABLE_TILES');
+  console.log('✗ ERROR: Mountain tile should be non-walkable');
   process.exit(1);
 }
 
@@ -85,15 +86,15 @@ if (NON_WALKABLE_TILES.has(mountainTile)) {
 console.log('\nTest 4: Movement to boulder tile (250) should be blocked');
 const boulderTile = map1.tiles[5][7];
 console.log(`  Tile at (5, 7): ${boulderTile}`);
-console.log(`  Is in NON_WALKABLE_TILES: ${NON_WALKABLE_TILES.has(boulderTile)}`);
-if (NON_WALKABLE_TILES.has(boulderTile)) {
-  console.log('✓ Boulder tile is correctly in NON_WALKABLE_TILES');
+console.log(`  isWalkable(${boulderTile}): ${isWalkable(boulderTile)}`);
+if (!isWalkable(boulderTile)) {
+  console.log('✓ Boulder tile is correctly identified as non-walkable');
 } else {
-  console.log('✗ ERROR: Boulder tile should be in NON_WALKABLE_TILES');
+  console.log('✗ ERROR: Boulder tile should be non-walkable');
   process.exit(1);
 }
 
-// Test scenario 5: Verify all added tile ranges
+// Test scenario 5: Verify all added tile ranges using isWalkable()
 console.log('\nTest 5: Verify comprehensive tile coverage');
 const testRanges = [
   { name: 'Walls (200-220)', min: 200, max: 220, exceptions: [DEEP_WATER_STATIC_1] }, // 215 is DEEP_WATER_STATIC_1
@@ -107,14 +108,15 @@ let allRangesCorrect = true;
 for (const range of testRanges) {
   let missingTiles = [];
   for (let tileId = range.min; tileId <= range.max; tileId++) {
-    if (!range.exceptions.includes(tileId) && !NON_WALKABLE_TILES.has(tileId)) {
+    // Use isWalkable() to check if tile is blocked
+    if (!range.exceptions.includes(tileId) && isWalkable(tileId)) {
       missingTiles.push(tileId);
       allRangesCorrect = false;
     }
   }
   
   if (missingTiles.length === 0) {
-    console.log(`✓ ${range.name}: All tiles correctly added`);
+    console.log(`✓ ${range.name}: All tiles correctly blocked`);
   } else {
     console.log(`✗ ${range.name}: Missing tiles: ${missingTiles.join(', ')}`);
   }
@@ -125,23 +127,44 @@ if (!allRangesCorrect) {
   process.exit(1);
 }
 
-// Test scenario 6: Verify exceptions are NOT in the set
-console.log('\nTest 6: Verify deep water tiles are handled separately');
-const deepWaterExceptions = [DEEP_WATER_STATIC_1, DEEP_WATER_STATIC_2]; // 215, 248
-let exceptionsCorrect = true;
-for (const tileId of deepWaterExceptions) {
-  if (NON_WALKABLE_TILES.has(tileId)) {
-    console.log(`⚠ Deep water tile ${tileId} is in NON_WALKABLE_TILES (should be handled separately)`);
-    // Not a failure, just a note - deep water can be in both
-  } else {
-    console.log(`✓ Deep water tile ${tileId} is correctly handled separately`);
-  }
+// Test scenario 6: Test string variant format
+console.log('\nTest 6: Test string variant format (e.g., "21_4")');
+// Create test map with string variant tiles
+const map2 = createTestMap();
+map2.tiles[2][2] = "209_0";  // Blocked variant
+map2.tiles[2][3] = "209_2";  // Non-blocked variant
+map2.tiles[2][4] = "21_4";   // Walkable tile with variant
+
+console.log(`  Tile at (2, 2): "${map2.tiles[2][2]}" -> isWalkable: ${isWalkable(map2.tiles[2][2])}`);
+console.log(`  Tile at (2, 3): "${map2.tiles[2][3]}" -> isWalkable: ${isWalkable(map2.tiles[2][3])}`);
+console.log(`  Tile at (2, 4): "${map2.tiles[2][4]}" -> isWalkable: ${isWalkable(map2.tiles[2][4])}`);
+
+let variantTestsPass = true;
+if (isWalkable("209_0")) {
+  console.log('✗ ERROR: "209_0" should be non-walkable');
+  variantTestsPass = false;
+}
+if (!isWalkable("209_2")) {
+  console.log('✗ ERROR: "209_2" should be walkable (different variant)');
+  variantTestsPass = false;
+}
+if (!isWalkable("21_4")) {
+  console.log('✗ ERROR: "21_4" should be walkable');
+  variantTestsPass = false;
+}
+
+if (variantTestsPass) {
+  console.log('✓ String variant format works correctly - specific variants can be blocked');
+} else {
+  process.exit(1);
 }
 
 console.log('\n=== All Integration Tests Passed ===');
 console.log('\nSummary:');
 console.log('- Players can move to walkable tiles (grass, paths, etc.)');
 console.log('- Players cannot move to walls, mountains, rocks, and obstacles');
+console.log('- System now uses string format (e.g., "21_4") for precise tile variant control');
+console.log('- Backward compatibility maintained for numeric tiles');
 console.log('- Comprehensive tile coverage: 99 impassable tiles');
 console.log('- Deep water tiles handled separately in playerService');
 console.log('\nThe forbidden tiles are now impenetrable stones that block player movement!');

@@ -143,6 +143,13 @@ export function isWater(tileId) {
  * Non-walkable tiles - tiles that players cannot walk on
  * These tiles will block movement unless the player has special abilities
  * 
+ * Now uses string format with variant notation (e.g., "21_4", "209_2")
+ * to allow blocking specific tile variants instead of just base tile IDs.
+ * 
+ * Format: "baseId_variant" where:
+ * - baseId: the tile type (e.g., 21, 180, 209)
+ * - variant: the specific variant (e.g., 0, 1, 2, 3, 4)
+ * 
  * Categories of impassable tiles:
  * - Walls and buildings (200-220)
  * - Mountains and cliffs (180-199, 221-240)
@@ -154,45 +161,74 @@ export function isWater(tileId) {
  */
 export const NON_WALKABLE_TILES = new Set([
   // === WALLS AND BUILDINGS (200-220) ===
-  200, 201, 202, 203, 204, 205, 206, 207, 208, 209, // Wall tiles
-  210, 211, 212, 213, 214, // More walls (note: 215 is deep water, handled separately)
-  216, 217, 218, 219, 220, // Building tiles/lava/special walls
+  "200_0", "201_0", "202_0", "203_0", "204_0", "205_0", "206_0", "207_0", "208_0", "209_0", // Wall tiles
+  "210_0", "211_0", "212_0", "213_0", "214_0", // More walls (note: 215 is deep water, handled separately)
+  "216_0", "217_0", "218_0", "219_0", "220_0", // Building tiles/lava/special walls
   
   // === MOUNTAINS AND CLIFFS (180-199, 221-240) ===
-  180, 181, 182, 183, 184, 185, 186, 187, 188, 189, // Mountain bases
-  190, 191, 192, 193, 194, 195, 196, 197, 198, 199, // Mountain peaks/cliffs
-  221, 222, 223, 224, 225, 226, 227, 228, 229, 230, // Cliff faces
-  231, 232, 233, 234, 235, 236, 237, 238, 239, 240, // High mountains
+  "180_0", "181_0", "182_0", "183_0", "184_0", "185_0", "186_0", "187_0", "188_0", "189_0", // Mountain bases
+  "190_0", "191_0", "192_0", "193_0", "194_0", "195_0", "196_0", "197_0", "198_0", "199_0", // Mountain peaks/cliffs
+  "221_0", "222_0", "223_0", "224_0", "225_0", "226_0", "227_0", "228_0", "229_0", "230_0", // Cliff faces
+  "231_0", "232_0", "233_0", "234_0", "235_0", "236_0", "237_0", "238_0", "239_0", "240_0", // High mountains
   
   // === LARGE ROCKS AND BOULDERS (241-260) ===
-  241, 242, 243, 244, 245, 246, 247, // Large rocks (note: 248 is DEEP_WATER_STATIC_2, handled separately)
-  249, 250, 251, 252, 253, 254, 255, 256, 257, 258, 259, 260, // Boulders
+  "241_0", "242_0", "243_0", "244_0", "245_0", "246_0", "247_0", // Large rocks (note: 248 is DEEP_WATER_STATIC_2, handled separately)
+  "249_0", "250_0", "251_0", "252_0", "253_0", "254_0", "255_0", "256_0", "257_0", "258_0", "259_0", "260_0", // Boulders
   
   // === SPECIAL OBSTACLES (261-280) ===
-  261, 262, 263, 264, 265, 266, 267, 268, 269, 270, // Fences/gates/barriers
-  271, 272, 273, 274, 275, 276, 277, 278, 279, 280, // Special obstacles
+  "261_0", "262_0", "263_0", "264_0", "265_0", "266_0", "267_0", "268_0", "269_0", "270_0", // Fences/gates/barriers
+  "271_0", "272_0", "273_0", "274_0", "275_0", "276_0", "277_0", "278_0", "279_0", "280_0", // Special obstacles
 ]);
 
 /**
  * Check if a tile is walkable
  * 
- * Supports both numeric and variant notation:
- * - Numbers: 21, 36, 209
- * - Variant notation: "21_1", "36_1", "209_2"
+ * Supports multiple formats:
+ * - String variant notation: "21_4", "36_1", "209_2" (primary format)
+ * - Numbers: 21, 36, 209 (converted to "21_0", "36_0", "209_0")
+ * - String numbers: "21", "36", "209" (converted to "21_0", "36_0", "209_0")
+ * 
+ * The NON_WALKABLE_TILES set now uses string format with variants,
+ * allowing blocking specific tile variants instead of all variants of a base tile.
  * 
  * @param {number|string} tileId - The tile ID to check (number or string with underscore)
  * @returns {boolean} True if tile can be walked on
  */
 export function isWalkable(tileId) {
-  const baseTileId = parseTileId(tileId);
-  
-  // If parsing failed, treat as walkable (fail-safe approach)
-  if (baseTileId === null) {
+  // Handle invalid input
+  if (tileId === undefined || tileId === null) {
     return true;
   }
   
-  // Non-walkable set takes precedence
-  if (NON_WALKABLE_TILES.has(baseTileId)) {
+  // Convert tile to normalized string format for checking
+  let normalizedTile;
+  
+  if (typeof tileId === 'string') {
+    // String input: check as-is first (for "21_4" format)
+    if (NON_WALKABLE_TILES.has(tileId)) {
+      return false;
+    }
+    
+    // If no underscore, add "_0" suffix (e.g., "21" -> "21_0")
+    if (!tileId.includes('_')) {
+      normalizedTile = `${tileId}_0`;
+    } else {
+      // Already in correct format, already checked above
+      return true;
+    }
+  } else if (typeof tileId === 'number') {
+    // Number input: convert to "number_0" format (e.g., 21 -> "21_0")
+    if (!Number.isFinite(tileId)) {
+      return true;
+    }
+    normalizedTile = `${tileId}_0`;
+  } else {
+    // Unknown type, treat as walkable
+    return true;
+  }
+  
+  // Check normalized format
+  if (NON_WALKABLE_TILES.has(normalizedTile)) {
     return false;
   }
   
