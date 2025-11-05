@@ -670,7 +670,8 @@ export class PlayerService {
    * Envia todos os snapshots pendentes em lote
    * 
    * Este método coleta todos os jogadores com snapshots pendentes,
-   * agrupa por mapa e envia pacotes "pl" (player list) para cada mapa.
+   * e envia pacotes "pl" (player list) apenas para jogadores que estão
+   * dentro do range visível (viewport/chunk) de cada jogador.
    * 
    * Chamado no final de cada tick do game loop para enviar todas as
    * atualizações de movimento em lote, otimizando a rede.
@@ -686,7 +687,7 @@ export class PlayerService {
    * }
    */
   flushPendingSnapshots() {
-    // Agrupa jogadores com snapshots pendentes por mapa
+    // Coleta todos os jogadores com snapshots pendentes por mapa
     const snapshotsByMap = new Map();
     
     for (const player of this.world.players.values()) {
@@ -705,24 +706,60 @@ export class PlayerService {
       player._pendingSnapshot = false;
     }
     
-    // Envia pacote "pl" para cada mapa com jogadores atualizados
-    for (const [mapId, players] of snapshotsByMap.entries()) {
-      if (players.length === 0) continue;
+    // Para cada mapa com jogadores atualizados
+    for (const [mapId, updatedPlayers] of snapshotsByMap.entries()) {
+      if (updatedPlayers.length === 0) continue;
       
-      // Cria array de snapshots serializados
-      const plData = players.map(p => {
-        const snapshot = this.makePlayerSnapshotPacket(p);
-        return JSON.stringify(snapshot);
-      });
+      // Obtém todos os jogadores no mapa
+      const allPlayersInMap = this.world.getPlayersInMap(mapId);
       
-      // Cria pacote "pl"
-      const plPacket = {
-        type: 'pl',
-        data: plData
-      };
-      
-      // Envia para todos os jogadores no mapa
-      this.world.broadcastInMap(mapId, plPacket);
+      // Para cada jogador que precisa receber atualizações
+      for (const receiver of allPlayersInMap) {
+        // Filtra jogadores atualizados que estão dentro do range visível do receiver
+        const visibleUpdates = updatedPlayers.filter(updatedPlayer => {
+          // Não inclui o próprio jogador na lista
+          if (updatedPlayer === receiver) return false;
+          
+          // Verifica se está dentro do range visível
+          return this.isPlayerInViewRange(receiver, updatedPlayer);
+        });
+        
+        // Se há atualizações visíveis, envia pacote "pl"
+        if (visibleUpdates.length > 0) {
+          const plData = visibleUpdates.map(p => {
+            const snapshot = this.makePlayerSnapshotPacket(p);
+            return JSON.stringify(snapshot);
+          });
+          
+          const plPacket = {
+            type: 'pl',
+            data: plData
+          };
+          
+          this.world.sendTo(receiver, plPacket);
+        }
+      }
     }
+  }
+
+  /**
+   * Verifica se um jogador está dentro do range visível de outro
+   * 
+   * Usa o raio do viewport (MAP_VIEW_RADIUS_X, MAP_VIEW_RADIUS_Y) para
+   * determinar se o jogador está dentro da área visível.
+   * 
+   * @param {Object} viewer - Jogador que está vendo
+   * @param {Object} target - Jogador alvo
+   * @returns {boolean} True se o target está visível para o viewer
+   */
+  isPlayerInViewRange(viewer, target) {
+    const radiusX = this.env.MAP_VIEW_RADIUS_X;
+    const radiusY = this.env.MAP_VIEW_RADIUS_Y;
+    
+    const dx = Math.abs(viewer.x - target.x);
+    const dy = Math.abs(viewer.y - target.y);
+    
+    // Verifica se está dentro do retângulo de visão
+    return dx <= radiusX && dy <= radiusY;
   }
 }
