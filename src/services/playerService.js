@@ -493,8 +493,9 @@ export class PlayerService {
       // === VALIDAÇÃO DE TILE (DEEP WATER) ===
       // Deep water tiles (215, 248, 325) are blocked by default
       // Unless player has canSwim capability (future feature)
+      // Now supports both numeric tiles (215) and variant notation ("215_1")
       const tileAtTarget = map.tiles[ny]?.[nx];
-      if (Number.isFinite(tileAtTarget) && isDeepWater(tileAtTarget)) {
+      if (isDeepWater(tileAtTarget)) {
         // Check if player can swim (future: player.canSwim)
         const canSwim = player.canSwim || false;
         if (!canSwim) {
@@ -505,7 +506,8 @@ export class PlayerService {
       
       // === VALIDAÇÃO DE TILE (WALKABILITY) ===
       // Check if tile is walkable (not in NON_WALKABLE_TILES set)
-      if (Number.isFinite(tileAtTarget) && !isWalkable(tileAtTarget)) {
+      // Now supports both numeric tiles (209) and variant notation ("209_2")
+      if (!isWalkable(tileAtTarget)) {
         // Movement blocked by non-walkable tile
         this.logger.debug(
           { sessionId: player.sessionId, tile: tileAtTarget, pos: {x: nx, y: ny} },
