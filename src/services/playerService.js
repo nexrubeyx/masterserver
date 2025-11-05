@@ -686,9 +686,12 @@ export class PlayerService {
   /**
    * Envia todos os snapshots pendentes em lote
    * 
-   * Este método coleta todos os jogadores com snapshots pendentes,
-   * e envia pacotes "pl" (player list) apenas para jogadores que estão
-   * dentro do range visível (viewport/chunk) de cada jogador.
+   * Este método envia pacotes "pl" (player list) contendo TODOS os jogadores
+   * dentro do range visível (viewport/chunk) de cada jogador, incluindo
+   * jogadores que estão parados (não apenas os que se moveram).
+   * 
+   * IMPORTANTE: Quando pelo menos um jogador em um mapa tem snapshot pendente,
+   * TODOS os jogadores visíveis no chunk são incluídos no pacote "pl".
    * 
    * Chamado no final de cada tick do game loop para enviar todas as
    * atualizações de movimento em lote, otimizando a rede.
@@ -704,8 +707,8 @@ export class PlayerService {
    * }
    */
   flushPendingSnapshots() {
-    // Coleta todos os jogadores com snapshots pendentes por mapa
-    const snapshotsByMap = new Map();
+    // Coleta todos os mapas que tiveram jogadores com snapshots pendentes
+    const mapsWithUpdates = new Set();
     
     for (const player of this.world.players.values()) {
       if (!player._pendingSnapshot) continue;
@@ -713,37 +716,29 @@ export class PlayerService {
       const mapId = player.mapId;
       if (!mapId) continue;
       
-      if (!snapshotsByMap.has(mapId)) {
-        snapshotsByMap.set(mapId, []);
-      }
-      
-      snapshotsByMap.get(mapId).push(player);
+      mapsWithUpdates.add(mapId);
       
       // Limpa flag de snapshot pendente
       player._pendingSnapshot = false;
     }
     
-    // Para cada mapa com jogadores atualizados
-    for (const [mapId, updatedPlayers] of snapshotsByMap.entries()) {
-      if (updatedPlayers.length === 0) continue;
-      
+    // Para cada mapa que teve atualizações
+    for (const mapId of mapsWithUpdates) {
       // Obtém todos os jogadores no mapa
       const allPlayersInMap = this.world.getPlayersInMap(mapId);
       
       // Para cada jogador que precisa receber atualizações
       for (const receiver of allPlayersInMap) {
-        // Filtra jogadores atualizados que estão dentro do range visível do receiver
-        const visibleUpdates = updatedPlayers.filter(updatedPlayer => {
-          // MUDANÇA: Agora INCLUI o próprio jogador na lista se ele foi atualizado
-          // Isso resolve o bug de overlap e garante sincronização adequada
-          
-          // Verifica se está dentro do range visível
-          return this.isPlayerInViewRange(receiver, updatedPlayer);
+        // MUDANÇA: Envia TODOS os jogadores dentro do chunk/viewport, não apenas os que se moveram
+        // Isso garante que jogadores parados também sejam incluídos no pacote "pl"
+        const visiblePlayers = allPlayersInMap.filter(player => {
+          // Verifica se está dentro do range visível (chunk)
+          return this.isPlayerInViewRange(receiver, player);
         });
         
-        // Se há atualizações visíveis, envia pacote "pl"
-        if (visibleUpdates.length > 0) {
-          const plData = this.makePlayerListData(visibleUpdates);
+        // Se há jogadores visíveis, envia pacote "pl" com TODOS eles
+        if (visiblePlayers.length > 0) {
+          const plData = this.makePlayerListData(visiblePlayers);
           
           const plPacket = {
             type: 'pl',
