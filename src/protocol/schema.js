@@ -23,6 +23,7 @@
  * - setobj: setar objetos do tile
  * - clrobj: limpar objetos do tile
  * - sw: trocar slots do inventário
+ * - u: usar item consumível do inventário
  */
 
 import Ajv from 'ajv';
@@ -265,6 +266,23 @@ export const schemaByType = {
       type: { const: 'sw' },
       slot: { type: 'integer', minimum: 0, maximum: 99 },
       swap: { type: 'integer', minimum: 0, maximum: 99 }
+    },
+    additionalProperties: false
+  },
+
+  /**
+   * Mensagem 'u' - Use item
+   * Usa um item consumível do inventário
+   * 
+   * Campos:
+   * - slot: slot do item a usar (0-99)
+   */
+  u: {
+    type: 'object',
+    required: ['type', 'slot'],
+    properties: {
+      type: { const: 'u' },
+      slot: { type: 'integer', minimum: 0, maximum: 99 }
     },
     additionalProperties: false
   }

@@ -12,6 +12,7 @@
  * - h: início/parada de movimento
  * - P: ping/keepalive
  * - sw: troca de slots no inventário
+ * - u: usar item consumível do inventário
  * 
  * Fluxo de processamento:
  * 1. WebSocket recebe mensagem bruta
@@ -664,6 +665,38 @@ export function createMessageRouter(env, logger, world) {
           logger.warn(
             { player: player.name, slot: packet.slot, swap: packet.swap },
             'Failed to swap inventory slots'
+          );
+        }
+        
+        return;
+      }
+
+      // === USE ITEM ===
+      // Jogador usa um item consumível do inventário
+      case 'u': {
+        const session = world.getSession(ws);
+        if (!session) return;  // Sem sessão = não autenticado, ignora
+        
+        const player = session.player;
+        
+        // Usa o item
+        const result = world.itemService.useItem(player, packet.slot);
+        
+        if (!result.success) {
+          logger.warn(
+            { player: player.name, slot: packet.slot, error: result.message },
+            'Failed to use item'
+          );
+          
+          // Envia mensagem de erro ao jogador
+          world.sendRaw(ws, {
+            type: 'logmsg',
+            text: result.message
+          });
+        } else {
+          logger.info(
+            { player: player.name, slot: packet.slot, effect: result.effect },
+            'Player used item successfully'
           );
         }
         
