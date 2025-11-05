@@ -368,10 +368,8 @@ broadcastPlayersListToMap(mapId) {
 
     this.logger.info({ user: user.username, sessionId, mapId: player.mapId }, 'Sessão anexada');
 
-    // Verifica se o jogador estava dormindo e envia mensagem de "wake up"
-    // NOTA: Este código não é mais necessário pois a lógica foi movida para authService
-    // No entanto, mantemos uma verificação simples caso o player tenha a flag sleeping
-    if (player.sleeping === false && player._wasWakingFromSleep) {
+    // Se o jogador estava dormindo e reconectou, envia mensagem de "wake up"
+    if (player._wasWakingFromSleep) {
       const wakeText = `<span style='color:#99ff99'>${player.name} wakes up.</span>`;
       this.sendToOthersInMap(player, { type: 'message', text: wakeText });
       delete player._wasWakingFromSleep; // Limpa flag temporária
