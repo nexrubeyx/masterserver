@@ -265,4 +265,49 @@ export class ItemService {
       'Gave starter items to player'
     );
   }
+
+  /**
+   * Troca dois items de slot no inventário
+   * 
+   * @param {Object} player - Jogador
+   * @param {number} slotA - Primeiro slot
+   * @param {number} slotB - Segundo slot
+   * @returns {Object} { success: boolean, message: string }
+   */
+  swapInventorySlots(player, slotA, slotB) {
+    this.initializeInventory(player);
+    
+    // Valida slots
+    if (slotA < 0 || slotA >= 100 || slotB < 0 || slotB >= 100) {
+      return { success: false, message: 'Invalid slot' };
+    }
+    
+    // Se os slots são iguais, não faz nada
+    if (slotA === slotB) {
+      return { success: true, message: 'Same slot' };
+    }
+    
+    // Troca os items de slot
+    const temp = player.inventory[slotA];
+    player.inventory[slotA] = player.inventory[slotB];
+    player.inventory[slotB] = temp;
+    
+    // Atualiza o campo slot nos items (se existirem)
+    if (player.inventory[slotA]) {
+      player.inventory[slotA].slot = slotA;
+    }
+    if (player.inventory[slotB]) {
+      player.inventory[slotB].slot = slotB;
+    }
+    
+    // Envia inventário atualizado para o cliente
+    this.sendInventoryToClient(player);
+    
+    // Persiste no banco de dados (async, não espera)
+    savePlayerInventory(player._id, player.inventory).catch(err => {
+      this.logger.error({ err: err.message }, 'Failed to save inventory after swap');
+    });
+    
+    return { success: true, message: 'Slots swapped' };
+  }
 }

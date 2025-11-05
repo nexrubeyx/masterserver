@@ -11,6 +11,7 @@
  * - m: mudança de direção do personagem
  * - h: início/parada de movimento
  * - P: ping/keepalive
+ * - sw: troca de slots no inventário
  * 
  * Fluxo de processamento:
  * 1. WebSocket recebe mensagem bruta
@@ -639,6 +640,31 @@ export function createMessageRouter(env, logger, world) {
           // Isso evita que o personagem desapareça após receber o plr_tpl update
           const snapshotPacket = world.playerService.makePlayerSnapshotPacket(player);
           world.sendToOthersInMap(player, snapshotPacket);
+        }
+        
+        return;
+      }
+
+      // === SWAP INVENTORY SLOTS ===
+      // Jogador troca dois items de slot no inventário
+      case 'sw': {
+        const session = world.getSession(ws);
+        if (!session) return;  // Sem sessão = não autenticado, ignora
+        
+        const player = session.player;
+        
+        // Troca os slots
+        const result = world.itemService.swapInventorySlots(
+          player,
+          packet.slot,
+          packet.swap
+        );
+        
+        if (!result.success) {
+          logger.warn(
+            { player: player.name, slot: packet.slot, swap: packet.swap },
+            'Failed to swap inventory slots'
+          );
         }
         
         return;

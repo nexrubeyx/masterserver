@@ -22,6 +22,7 @@
  * - bld: construir template no tile atual
  * - setobj: setar objetos do tile
  * - clrobj: limpar objetos do tile
+ * - sw: trocar slots do inventário
  */
 
 import Ajv from 'ajv';
@@ -245,6 +246,25 @@ export const schemaByType = {
       hc: { type: 'integer', minimum: 0, maximum: 16777215 }, // hair_color
       ec: { type: 'integer', minimum: 0, maximum: 16777215 }, // eye_color
       nc: { type: 'integer', minimum: 0, maximum: 16777215 }  // name_color
+    },
+    additionalProperties: false
+  },
+
+  /**
+   * Mensagem 'sw' - Swap inventory slots
+   * Troca dois items de slot no inventário
+   * 
+   * Campos:
+   * - slot: slot de origem (0-99)
+   * - swap: slot de destino (0-99)
+   */
+  sw: {
+    type: 'object',
+    required: ['type', 'slot', 'swap'],
+    properties: {
+      type: { const: 'sw' },
+      slot: { type: 'integer', minimum: 0, maximum: 99 },
+      swap: { type: 'integer', minimum: 0, maximum: 99 }
     },
     additionalProperties: false
   }
