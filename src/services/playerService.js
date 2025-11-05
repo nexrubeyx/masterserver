@@ -121,6 +121,23 @@ export class PlayerService {
   }
 
   /**
+   * Cria array de snapshots serializados para pacote "pl"
+   * 
+   * Helper method que converte uma lista de jogadores em um array
+   * de strings JSON contendo seus snapshots, no formato esperado
+   * pelo campo "data" do pacote "pl".
+   * 
+   * @param {Array<Object>} players - Lista de jogadores
+   * @returns {Array<string>} Array de snapshots serializados
+   */
+  makePlayerListData(players) {
+    return players.map(p => {
+      const snapshot = this.makePlayerSnapshotPacket(p);
+      return JSON.stringify(snapshot);
+    });
+  }
+
+  /**
    * Calcula origem do viewport para um jogador centralizado na posição do player
    * 
    * O viewport é a área retangular de tiles visíveis ao redor do jogador.
@@ -373,8 +390,9 @@ export class PlayerService {
    * @param {number} now - Timestamp atual (ms)
    * @param {boolean} immediate - Se true, ignora rate limit e envia imediatamente
    * 
-   * Envia pacote 'p' para OUTROS jogadores no mesmo mapa.
-   * Não envia para o próprio jogador (ele já sabe onde está).
+   * Marca o jogador para ser incluído no próximo batch de snapshots.
+   * Os snapshots são enviados em formato "pl" (player list) em vez de
+   * pacotes "p" individuais para otimizar a rede.
    * 
    * O parâmetro 'immediate' é usado quando precisamos garantir
    * sincronização imediata, como após correção de posição.
@@ -386,8 +404,8 @@ export class PlayerService {
     // Rate limiting: respeita intervalo mínimo entre snapshots (a menos que seja imediato)
     if (!immediate && now - (player._lastSnapshotAt || 0) < this._snapshotMinInterval) return;
 
-    // Envia snapshot para outros jogadores (não para si mesmo)
-    this.world.sendToOthersInMap(player, this.makePlayerSnapshotPacket(player));
+    // Marca jogador para ser incluído no próximo batch de snapshots
+    player._pendingSnapshot = true;
     
     // Atualiza timestamp e limpa flag
     player._lastSnapshotAt = now;
@@ -663,5 +681,99 @@ export class PlayerService {
       appearance: player.appearance,
       speed: player.speed
     });
+  }
+
+  /**
+   * Envia todos os snapshots pendentes em lote
+   * 
+   * Este método coleta todos os jogadores com snapshots pendentes,
+   * e envia pacotes "pl" (player list) apenas para jogadores que estão
+   * dentro do range visível (viewport/chunk) de cada jogador.
+   * 
+   * Chamado no final de cada tick do game loop para enviar todas as
+   * atualizações de movimento em lote, otimizando a rede.
+   * 
+   * Formato do pacote:
+   * {
+   *   type: "pl",
+   *   data: [
+   *     "{\"type\":\"p\",\"id\":123,...}",
+   *     "{\"type\":\"p\",\"id\":456,...}",
+   *     ...
+   *   ]
+   * }
+   */
+  flushPendingSnapshots() {
+    // Coleta todos os jogadores com snapshots pendentes por mapa
+    const snapshotsByMap = new Map();
+    
+    for (const player of this.world.players.values()) {
+      if (!player._pendingSnapshot) continue;
+      
+      const mapId = player.mapId;
+      if (!mapId) continue;
+      
+      if (!snapshotsByMap.has(mapId)) {
+        snapshotsByMap.set(mapId, []);
+      }
+      
+      snapshotsByMap.get(mapId).push(player);
+      
+      // Limpa flag de snapshot pendente
+      player._pendingSnapshot = false;
+    }
+    
+    // Para cada mapa com jogadores atualizados
+    for (const [mapId, updatedPlayers] of snapshotsByMap.entries()) {
+      if (updatedPlayers.length === 0) continue;
+      
+      // Obtém todos os jogadores no mapa
+      const allPlayersInMap = this.world.getPlayersInMap(mapId);
+      
+      // Para cada jogador que precisa receber atualizações
+      for (const receiver of allPlayersInMap) {
+        // Filtra jogadores atualizados que estão dentro do range visível do receiver
+        const visibleUpdates = updatedPlayers.filter(updatedPlayer => {
+          // Não inclui o próprio jogador na lista
+          if (updatedPlayer === receiver) return false;
+          
+          // Verifica se está dentro do range visível
+          return this.isPlayerInViewRange(receiver, updatedPlayer);
+        });
+        
+        // Se há atualizações visíveis, envia pacote "pl"
+        if (visibleUpdates.length > 0) {
+          const plData = this.makePlayerListData(visibleUpdates);
+          
+          const plPacket = {
+            type: 'pl',
+            data: plData
+          };
+          
+          this.world.sendTo(receiver, plPacket);
+        }
+      }
+    }
+  }
+
+  /**
+   * Verifica se um jogador está dentro do range visível de outro
+   * 
+   * Usa o raio do viewport (MAP_VIEW_RADIUS_X, MAP_VIEW_RADIUS_Y) para
+   * determinar se o jogador está dentro da área visível.
+   * 
+   * @param {Object} viewer - Jogador que está vendo
+   * @param {Object} target - Jogador alvo
+   * @returns {boolean} True se o target está visível para o viewer
+   */
+  isPlayerInViewRange(viewer, target) {
+    const radiusX = this.env.MAP_VIEW_RADIUS_X;
+    const radiusY = this.env.MAP_VIEW_RADIUS_Y;
+    
+    const dx = Math.abs(viewer.x - target.x);
+    const dy = Math.abs(viewer.y - target.y);
+    
+    // Verifica se está dentro do retângulo de visão
+    return dx <= radiusX && dy <= radiusY;
   }
 }
