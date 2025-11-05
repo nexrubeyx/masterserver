@@ -176,6 +176,9 @@ export class World {
       const plPacket = { type: 'pl', data: plData };
       
       // MUDANÇA: Envia pl dentro de pkg (formato: pkg > pl > p)
+      // Nota: O double stringify é necessário pelo protocolo do cliente.
+      // Primeira camada: stringify do plPacket para string
+      // Segunda camada: stringify do array contendo a string do plPacket
       const pkgPacket = {
         type: 'pkg',
         data: JSON.stringify([JSON.stringify(plPacket)])
@@ -209,6 +212,9 @@ broadcastPlayersListToMap(mapId) {
     const plPacket = { type: 'pl', data };
     
     // MUDANÇA: Envia pl dentro de pkg (formato: pkg > pl > p)
+    // Nota: O double stringify é necessário pelo protocolo do cliente.
+    // Primeira camada: stringify do plPacket para string
+    // Segunda camada: stringify do array contendo a string do plPacket
     const pkgPacket = {
       type: 'pkg',
       data: JSON.stringify([JSON.stringify(plPacket)])
@@ -776,9 +782,9 @@ const poofedTemplate = {
     // IMPORTANTE: Agora inclui o próprio jogador no pacote para resolver bugs de overlap
     for (const receiver of sameMap) {
       // Filtra jogadores visíveis para este receiver
+      // INCLUI o próprio receiver para garantir sincronização correta (importante para overlap)
       const visiblePlayers = sameMap.filter(p => {
-        // MUDANÇA: Agora INCLUI o próprio jogador para garantir sincronização correta
-        // Isso é especialmente importante quando há overlap de personagens no login
+        // Verifica se está dentro do range visível (inclui o próprio receiver)
         return this.playerService.isPlayerInViewRange(receiver, p);
       });
       
@@ -793,6 +799,9 @@ const poofedTemplate = {
         
         // MUDANÇA: TODOS os jogadores recebem o pacote "pl" dentro de um "pkg"
         // Formato: pkg > pl > p (conforme esperado pelo cliente)
+        // Nota: O double stringify é necessário pelo protocolo do cliente.
+        // Primeira camada: stringify do plPacket para string
+        // Segunda camada: stringify do array contendo a string do plPacket
         const pkgPacket = {
           type: 'pkg',
           data: JSON.stringify([JSON.stringify(plPacket)])

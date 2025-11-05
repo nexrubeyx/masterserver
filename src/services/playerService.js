@@ -752,6 +752,9 @@ export class PlayerService {
           
           // MUDANÇA: TODOS os jogadores recebem o pacote "pl" dentro de um "pkg"
           // Formato: pkg > pl > p (conforme esperado pelo cliente)
+          // Nota: O double stringify é necessário pelo protocolo do cliente.
+          // Primeira camada: stringify do plPacket para string
+          // Segunda camada: stringify do array contendo a string do plPacket
           const pkgPacket = {
             type: 'pkg',
             data: JSON.stringify([JSON.stringify(plPacket)])
