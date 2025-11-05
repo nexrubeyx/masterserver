@@ -503,6 +503,35 @@ export function createMessageRouter(env, logger, world) {
           return;
         }
         
+        // === PLAYER LIST REQUEST (c0) ===
+        // Cliente solicita lista de jogadores visíveis
+        if (requestType === 'c0') {
+          // Get all players in the same map
+          const allPlayersInMap = world.getPlayersInMap(player.mapId);
+          
+          // Filter to only include players within visible range (chunk)
+          const visiblePlayers = allPlayersInMap.filter(p => {
+            return world.playerService.isPlayerInViewRange(player, p);
+          });
+          
+          // Create player list data
+          const plData = world.playerService.makePlayerListData(visiblePlayers);
+          
+          // Send as pl packet wrapped in pkg (same format as regular player updates)
+          const plPacket = {
+            type: 'pl',
+            data: plData
+          };
+          
+          const pkgPacket = {
+            type: 'pkg',
+            data: JSON.stringify([JSON.stringify(plPacket)])
+          };
+          
+          world.sendTo(player, pkgPacket);
+          return;
+        }
+        
         // Tipo de request desconhecido - ignora
         return;
       }
