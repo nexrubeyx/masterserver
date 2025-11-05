@@ -838,8 +838,8 @@ const poofedTemplate = {
     if (!player || !player.mapId) return;
     
     for (const [ws, session] of this.sessions) {
-      // Validate session has player
-      if (!session || !session.player) continue;
+      // Validate session has player (defensive programming for edge cases)
+      if (!session.player) continue;
       
       // Skip if not in same map
       if (session.player.mapId !== player.mapId) continue;

@@ -722,7 +722,8 @@ export class PlayerService {
    * }
    */
   flushPendingSnapshots() {
-    // Collect all maps that had players with pending snapshots
+    // Collect all maps where at least one player moved
+    // For these maps, we'll send ALL visible players (moving + stationary) to all receivers
     const mapsWithUpdates = new Set();
     
     for (const player of this.world.players.values()) {
@@ -746,6 +747,10 @@ export class PlayerService {
       for (const receiver of allPlayersInMap) {
         // CHANGE: Send ALL players within chunk/viewport, not just those that moved
         // This ensures stationary players are also included in the "pl" packet
+        // 
+        // Performance Note: O(n²) complexity per map - each receiver filters all players
+        // Acceptable for typical scenarios (<100 players per map)
+        // For optimization with larger player counts, consider spatial indexing (quadtree)
         const visiblePlayers = allPlayersInMap.filter(player => {
           // Check if within visible range (chunk)
           return this.isPlayerInViewRange(receiver, player);
