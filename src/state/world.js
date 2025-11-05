@@ -759,10 +759,12 @@ const poofedTemplate = {
 
     // 3) Envia pacote "pl" para TODOS os jogadores no mapa
     // Isso garante que todos tenham a lista completa e atualizada de jogadores
+    // IMPORTANTE: Agora inclui o próprio jogador no pacote para resolver bugs de overlap
     for (const receiver of sameMap) {
       // Filtra jogadores visíveis para este receiver
       const visiblePlayers = sameMap.filter(p => {
-        if (p === receiver) return false; // Não inclui o próprio
+        // MUDANÇA: Agora INCLUI o próprio jogador para garantir sincronização correta
+        // Isso é especialmente importante quando há overlap de personagens no login
         return this.playerService.isPlayerInViewRange(receiver, p);
       });
       
@@ -775,7 +777,21 @@ const poofedTemplate = {
           data: plData
         };
         
-        this.sendTo(receiver, plPacket);
+        // MUDANÇA: Se o receiver é o novo jogador ou está incluído na lista,
+        // envia o pacote "pl" dentro de um "pkg" conforme esperado pelo cliente
+        const receiverIncluded = visiblePlayers.includes(receiver);
+        
+        if (receiverIncluded) {
+          // Envia pl dentro de pkg para garantir sincronização adequada
+          const pkgPacket = {
+            type: 'pkg',
+            data: JSON.stringify([JSON.stringify(plPacket)])
+          };
+          this.sendTo(receiver, pkgPacket);
+        } else {
+          // Envia pl direto para outros jogadores
+          this.sendTo(receiver, plPacket);
+        }
       }
     }
   }
