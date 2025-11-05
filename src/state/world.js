@@ -839,6 +839,9 @@ const poofedTemplate = {
     if (!player || !player.mapId) return;
     
     for (const [ws, session] of this.sessions) {
+      // Valida que sessão tem jogador
+      if (!session || !session.player) continue;
+      
       // Pula se não está no mesmo mapa
       if (session.player.mapId !== player.mapId) continue;
       

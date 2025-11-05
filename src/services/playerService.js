@@ -693,6 +693,15 @@ export class PlayerService {
    * IMPORTANTE: Quando pelo menos um jogador em um mapa tem snapshot pendente,
    * TODOS os jogadores visíveis no chunk são incluídos no pacote "pl".
    * 
+   * NOTA SOBRE TRÁFEGO DE REDE:
+   * Esta implementação envia TODOS os jogadores no viewport, mesmo os que não se moveram.
+   * Isso é o comportamento DESEJADO conforme especificação do requisito:
+   * "deve enviar todos os jogadores que estão dentro da mesma chunk até os mesmos 
+   * jogadores que não estão se movendo".
+   * 
+   * Trade-off: Aumenta tráfego de rede mas garante que clientes sempre tenham
+   * dados completos e atualizados de todos os jogadores visíveis.
+   * 
    * Chamado no final de cada tick do game loop para enviar todas as
    * atualizações de movimento em lote, otimizando a rede.
    * 
