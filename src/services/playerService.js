@@ -697,16 +697,28 @@ export class PlayerService {
    * - Jogador desconecta
    * 
    * @param {Object} player - Jogador
+   * @param {boolean} sendToSelf - Se true, também envia correção para o próprio jogador
    * 
    * Limpa acumulador e notifica outros jogadores da parada.
+   * Se sendToSelf=true, também envia snapshot corrigido ao próprio jogador
+   * para garantir sincronização (usado em paradas forçadas, não voluntárias).
    */
-  stopMoving(player) {
+  stopMoving(player, sendToSelf = false) {
     player.moving = false;  // Marca como parado
     player._accumMs = 0;    // Limpa acumulador de tempo
     
+    // Cria snapshot uma vez para reusar
+    const snapshot = this.makePlayerSnapshotPacket(player);
+    
     // Envia snapshot para outros jogadores
     // (importante para sincronizar parada)
-    this.world.sendToOthersInMap(player, this.makePlayerSnapshotPacket(player));
+    this.world.sendToOthersInMap(player, snapshot);
+    
+    // Se sendToSelf=true, também envia para o próprio jogador
+    // Isso garante que o cliente tenha dx=x, dy=y (coordenadas corretas)
+    if (sendToSelf) {
+      this.world.sendTo(player, snapshot);
+    }
   }
 
   /**
