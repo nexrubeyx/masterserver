@@ -330,27 +330,14 @@ export function createMessageRouter(env, logger, world) {
           const isFirstRequest = !session._costumeShopSent;
           
           if (isFirstRequest) {
-            // Primeira requisição: envia template completo + fx + costume data + player list
+            // Primeira requisição: envia template completo + fx + costume data
             session._costumeShopSent = true;
             
-            // Get all visible players for the player list packet
-            const allPlayersInMap = world.getPlayersInMap(player.mapId);
-            const visiblePlayers = allPlayersInMap.filter(p => {
-              return world.playerService.isPlayerInViewRange(player, p);
-            });
-            
-            // Create player list packet (pl with p entries)
-            const plData = world.playerService.makePlayerListData(visiblePlayers);
-            const plPacket = JSON.stringify({
-              type: 'pl',
-              data: plData
-            });
-            
-            // Envia os pacotes do costume shop (template + fx) + player list + costume data
+            // Envia os pacotes do costume shop (template + fx) e costume data
             const shopPackets = makeCostumeShopPacket(player, user);
             world.sendRaw(ws, {
               type: 'pkg',
-              data: JSON.stringify([plPacket, ...shopPackets, JSON.stringify(costumePacket)])
+              data: JSON.stringify([...shopPackets, JSON.stringify(costumePacket)])
             });
           } else {
             // Requisições subsequentes: envia apenas fx + costume data (sem template)
