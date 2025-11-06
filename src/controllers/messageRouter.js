@@ -31,6 +31,7 @@ import { validateAppearanceChanges, hasActivePremium } from '../constants/appear
 import { makeCostumeShopPacket, makeCostumeDataPacket, buyCostume, getCostumeCost } from '../services/costumeService.js';
 import { addCostumeToUser, getUserCostumeData, deductPremiumDays } from '../models/User.js';
 import { MAX_COSTUMES } from '../constants/costume.js';
+import { DEFAULT_ATTACK_SPEED } from '../constants/tiles.js';
 
 /**
  * Calculates offset coordinates based on direction
@@ -781,11 +782,11 @@ export function createMessageRouter(env, logger, world) {
         // Send first attack effect immediately
         sendAttackEffect();
         
-        // Start attack loop with player's attackSpeed (default: 1000ms)
-        const attackSpeed = player.attackSpeed || 1000;
+        // Start attack loop with player's attackSpeed
+        const attackSpeed = player.attackSpeed || DEFAULT_ATTACK_SPEED;
         player._attackInterval = setInterval(() => {
-          // Check if player is still attacking (could have been stopped)
-          if (!player.attacking) {
+          // Safety check: ensure player still exists and is attacking
+          if (!player || !player.attacking) {
             clearAttackInterval(player);
             return;
           }

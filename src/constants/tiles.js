@@ -21,6 +21,12 @@
  */
 export const DEFAULT_PLAYER_SPEED = 350;
 
+/**
+ * Default player attack speed in milliseconds between attacks
+ * Used as fallback when player attackSpeed is not set or invalid
+ */
+export const DEFAULT_ATTACK_SPEED = 1000;
+
 // === TILE ID PARSING ===
 /**
  * Parse tile ID from various formats

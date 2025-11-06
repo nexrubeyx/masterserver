@@ -32,6 +32,7 @@
  */
 
 import { getDB } from '../db/mongo.js';
+import { DEFAULT_ATTACK_SPEED } from '../constants/tiles.js';
 
 /**
  * Busca um personagem pelo ID do usuário
@@ -74,7 +75,7 @@ export async function createPlayer({ userId, name, mapId, x, y, appearance, spee
     x,                                                    // Posição X inicial
     y,                                                    // Posição Y inicial
     speed: Number.isFinite(speed) ? speed : 350,          // Velocidade (padrão 350ms/tile)
-    attackSpeed: Number.isFinite(attackSpeed) ? attackSpeed : 1000,  // Velocidade de ataque (padrão 1000ms)
+    attackSpeed: Number.isFinite(attackSpeed) ? attackSpeed : DEFAULT_ATTACK_SPEED,  // Velocidade de ataque
     inventory: [],                                        // Inventário vazio
     appearance,                                           // Aparência visual completa
     createdAt: new Date(),                                // Data de criação
