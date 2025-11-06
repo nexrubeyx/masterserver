@@ -151,7 +151,7 @@ console.log('\n---\n');
 
 console.log('Test 4: Security validation - coordinate tolerance');
 console.log('Scenario: Client reports position 6 tiles away from server position');
-console.log('Expected: Should be rejected (> 5 tile severe desync threshold)\n');
+console.log('Expected: Should be rejected (exceeds 5 tile severe desync threshold)\n');
 
 const serverPos = { x: 50, y: 50 };
 const clientPos = { x: 56, y: 50 }; // 6 tiles away
