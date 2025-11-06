@@ -317,26 +317,35 @@ export function createMessageRouter(env, logger, world) {
         // === COSTUME SHOP REQUEST ===
         // Cliente solicita abertura da loja de costumes
         if (requestType === 'cs') {
+          // Obtém dados atualizados de costumes do usuário
+          const costumeData = await getUserCostumeData(user._id);
+          
+          // Cria pacote de dados de costumes
+          const costumePacket = makeCostumeDataPacket({
+            ...user,
+            ...costumeData
+          });
+          
           // Verifica se é a primeira vez que o cliente abre a loja de costumes nesta sessão
           const isFirstRequest = !session._costumeShopSent;
           
           if (isFirstRequest) {
-            // Primeira requisição: envia template completo + fx
+            // Primeira requisição: envia template completo + fx + costume data
             session._costumeShopSent = true;
             
-            // Envia os pacotes do costume shop (template + fx)
+            // Envia os pacotes do costume shop (template + fx) e costume data
             const shopPackets = makeCostumeShopPacket(player, user);
             world.sendRaw(ws, {
               type: 'pkg',
-              data: JSON.stringify(shopPackets)
+              data: JSON.stringify([...shopPackets, JSON.stringify(costumePacket)])
             });
           } else {
-            // Requisições subsequentes: envia apenas o fx (sem template)
+            // Requisições subsequentes: envia apenas fx + costume data (sem template)
             const fxPacket = makeCostumeShopFxPacket();
             
             world.sendRaw(ws, {
               type: 'pkg',
-              data: JSON.stringify([fxPacket])
+              data: JSON.stringify([fxPacket, JSON.stringify(costumePacket)])
             });
           }
           
