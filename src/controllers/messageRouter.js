@@ -33,6 +33,36 @@ import { addCostumeToUser, getUserCostumeData, deductPremiumDays } from '../mode
 import { MAX_COSTUMES } from '../constants/costume.js';
 
 /**
+ * Calculates offset coordinates based on direction
+ * Direction: 0=up, 1=right, 2=down, 3=left
+ * 
+ * @param {number} direction - Player facing direction (0-3)
+ * @returns {Object} { dx, dy } - Coordinate offsets
+ */
+function getDirectionOffset(direction) {
+  const offsets = [
+    { dx: 0, dy: -1 },  // 0: UP
+    { dx: 1, dy: 0 },   // 1: RIGHT
+    { dx: 0, dy: 1 },   // 2: DOWN
+    { dx: -1, dy: 0 }   // 3: LEFT
+  ];
+  return offsets[direction] || { dx: 0, dy: 0 };
+}
+
+/**
+ * Clears attack interval and resets attack state
+ * 
+ * @param {Object} player - Player object
+ */
+function clearAttackInterval(player) {
+  if (player._attackInterval) {
+    clearInterval(player._attackInterval);
+    player._attackInterval = null;
+  }
+  player.attacking = false;
+}
+
+/**
  * Cria função roteadora de mensagens
  * 
  * @param {Object} env - Configurações do ambiente
@@ -724,9 +754,7 @@ export function createMessageRouter(env, logger, world) {
         // Helper function to send attack effect
         const sendAttackEffect = () => {
           // Calculate position in front of player based on direction
-          // Direction: 0=up, 1=right, 2=down, 3=left
-          const dx = (player.dir === 1 ? 1 : player.dir === 3 ? -1 : 0);
-          const dy = (player.dir === 2 ? 1 : player.dir === 0 ? -1 : 0);
+          const { dx, dy } = getDirectionOffset(player.dir);
           const attackX = player.x + dx;
           const attackY = player.y + dy;
           
@@ -758,8 +786,7 @@ export function createMessageRouter(env, logger, world) {
         player._attackInterval = setInterval(() => {
           // Check if player is still attacking (could have been stopped)
           if (!player.attacking) {
-            clearInterval(player._attackInterval);
-            player._attackInterval = null;
+            clearAttackInterval(player);
             return;
           }
           
@@ -777,14 +804,8 @@ export function createMessageRouter(env, logger, world) {
         
         const player = session.player;
         
-        // Mark player as not attacking
-        player.attacking = false;
-        
-        // Clear attack interval if it exists
-        if (player._attackInterval) {
-          clearInterval(player._attackInterval);
-          player._attackInterval = null;
-        }
+        // Clear attack interval and reset state
+        clearAttackInterval(player);
         
         return;
       }

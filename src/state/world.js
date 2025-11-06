@@ -466,10 +466,10 @@ handleDisconnect(ws) {
   // 3) Remove a sessão WebSocket (jogador não pode mais receber mensagens)
   this.sessions.delete(ws);
 
-  // 3) Marca o jogador como "sleeping" (dormindo)
+  // 4) Marca o jogador como "sleeping" (dormindo)
   player.sleeping = true;
 
-  // 4) Envia mensagem "goes to sleep" para outros jogadores no mapa
+  // 5) Envia mensagem "goes to sleep" para outros jogadores no mapa
   try {
     const name = (player?.name && String(player.name)) || `guest-${player?.sessionId ?? ''}`;
     const sleepText = `<span style='color:#99ff99'>${name} goes to sleep.</span>`;
@@ -480,24 +480,24 @@ handleDisconnect(ws) {
     this.logger?.warn({ err: err?.message, stack: err?.stack, sessionId: player?.sessionId }, 'Falha ao enviar mensagem de sleep');
   }
 
-  // 5) Broadcast da lista de jogadores atualizada (com o campo sleeping)
+  // 6) Broadcast da lista de jogadores atualizada (com o campo sleeping)
   try {
     this.broadcastPlayersListToMap?.(player?.mapId);
   } catch {}
 
-  // 6) Agenda a remoção final do jogador após o período de sleep configurado
+  // 7) Agenda a remoção final do jogador após o período de sleep configurado
   const timeoutId = setTimeout(() => {
     this.finalizeDisconnect(player, user, ws);
   }, this.env.SLEEP_TIMEOUT_MS);
 
-  // 7) Armazena o jogador dormindo com o timer
+  // 8) Armazena o jogador dormindo com o timer
   this.sleepingPlayers.set(player.sessionId, {
     player,
     user,
     timeoutId
   });
 
-  // 8) Log
+  // 9) Log
   const sleepSeconds = Math.round(this.env.SLEEP_TIMEOUT_MS / 1000);
   this.logger?.info(
     { sessionId: player?.sessionId, name: player?.name, userId: user?._id, ip: ws?._ip, sleepTimeoutSec: sleepSeconds },
