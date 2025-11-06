@@ -166,11 +166,11 @@ export function createMessageRouter(env, logger, world) {
           data: JSON.stringify(pkgData)
         });
 
-        // 5) Envia template e snapshot do próprio jogador
+        // 5) Envia template do próprio jogador
         // Template define aparência visual
         world.sendTo(player, world.playerService.makePlayerTemplatePacket(player));
-        // Snapshot define posição e estado atual
-        world.sendTo(player, world.playerService.makePlayerSnapshotPacket(player));
+        // Snapshot será enviado via syncPresence() no passo 10
+        // que usa o formato correto pl (pkg > pl > p)
 
         // 6) Força envio do primeiro viewport (tiles visíveis)
         player._lastViewOX = undefined;
@@ -244,12 +244,8 @@ export function createMessageRouter(env, logger, world) {
             'Cliente com coordenadas dessincronizadas (comando m) - corrigindo'
           );
           
-          // Força envio de snapshot correto para resincronizar
-          const correctionSnapshot = world.playerService.makePlayerSnapshotPacket(session.player);
-          world.sendTo(session.player, correctionSnapshot);
-          
-          // Também envia para outros jogadores para garantir consistência
-          world.sendToOthersInMap(session.player, correctionSnapshot);
+          // Envia correção usando formato pl (pkg > pl > p) para todos
+          world.playerService.broadcastPlayerPositions(session.player.mapId, null);
           return;
         }
 
@@ -278,12 +274,8 @@ export function createMessageRouter(env, logger, world) {
             'Cliente com coordenadas dessincronizadas (comando h) - corrigindo'
           );
           
-          // Força envio de snapshot correto para resincronizar
-          const correctionSnapshot = world.playerService.makePlayerSnapshotPacket(session.player);
-          world.sendTo(session.player, correctionSnapshot);
-          
-          // Também envia para outros jogadores para garantir consistência
-          world.sendToOthersInMap(session.player, correctionSnapshot);
+          // Envia correção usando formato pl (pkg > pl > p) para todos
+          world.playerService.broadcastPlayerPositions(session.player.mapId, null);
           return;
         }
 
@@ -376,17 +368,12 @@ export function createMessageRouter(env, logger, world) {
               pr: user.premium || 0
             });
             
-            // Atualiza template e snapshot
+            // Atualiza template para todos
             const templatePacket = world.playerService.makePlayerTemplatePacket(player);
             world.sendToAllInMap(player, templatePacket);
             
-            const snapshotPacket = world.playerService.makePlayerSnapshotPacket(player);
-            world.sendTo(player, snapshotPacket);
-            world.sendToOthersInMap(player, snapshotPacket);
-            
-            // Broadcast do "pl" (player list) para garantir que todos os clientes no mapa
-            // vejam a aparência atualizada na lista de jogadores (pkg > pl > p)
-            world.broadcastPlayersListToMap(player.mapId);
+            // Envia posições atualizadas usando formato pl (pkg > pl > p) para todos
+            world.playerService.broadcastPlayerPositions(player.mapId, null);
             
             return;
           }
@@ -431,14 +418,8 @@ export function createMessageRouter(env, logger, world) {
           const templatePacket = world.playerService.makePlayerTemplatePacket(player);
           world.sendToAllInMap(player, templatePacket);
           
-          // Envia snapshot para todos para atualizar visualmente
-          const snapshotPacket = world.playerService.makePlayerSnapshotPacket(player);
-          world.sendTo(player, snapshotPacket);
-          world.sendToOthersInMap(player, snapshotPacket);
-          
-          // Broadcast do "pl" (player list) para garantir que todos os clientes no mapa
-          // vejam a aparência atualizada na lista de jogadores (pkg > pl > p)
-          world.broadcastPlayersListToMap(player.mapId);
+          // Envia posições atualizadas usando formato pl (pkg > pl > p) para todos
+          world.playerService.broadcastPlayerPositions(player.mapId, null);
           
           return;
         }
@@ -466,14 +447,8 @@ export function createMessageRouter(env, logger, world) {
           const templatePacket = world.playerService.makePlayerTemplatePacket(player);
           world.sendToAllInMap(player, templatePacket);
           
-          // Envia snapshot para todos para atualizar visualmente
-          const snapshotPacket = world.playerService.makePlayerSnapshotPacket(player);
-          world.sendTo(player, snapshotPacket);
-          world.sendToOthersInMap(player, snapshotPacket);
-          
-          // Broadcast do "pl" (player list) para garantir que todos os clientes no mapa
-          // vejam a aparência atualizada na lista de jogadores (pkg > pl > p)
-          world.broadcastPlayersListToMap(player.mapId);
+          // Envia posições atualizadas usando formato pl (pkg > pl > p) para todos
+          world.playerService.broadcastPlayerPositions(player.mapId, null);
           
           return;
         }
@@ -552,17 +527,8 @@ export function createMessageRouter(env, logger, world) {
             const templatePacket = world.playerService.makePlayerTemplatePacket(player);
             world.sendToAllInMap(player, templatePacket);
             
-            // Envia snapshot para o próprio jogador primeiro, para que o cliente recrie o personagem
-            // com a nova aparência (similar ao fluxo de login)
-            const snapshotPacket = world.playerService.makePlayerSnapshotPacket(player);
-            world.sendTo(player, snapshotPacket);
-            
-            // Envia snapshot para outros jogadores para que vejam a atualização
-            world.sendToOthersInMap(player, snapshotPacket);
-            
-            // Broadcast do "pl" (player list) para garantir que todos os clientes no mapa
-            // vejam a aparência atualizada na lista de jogadores (pkg > pl > p)
-            world.broadcastPlayersListToMap(player.mapId);
+            // Envia posições atualizadas usando formato pl (pkg > pl > p) para todos
+            world.playerService.broadcastPlayerPositions(player.mapId, null);
           }
           
           return;
@@ -678,10 +644,9 @@ export function createMessageRouter(env, logger, world) {
           const templatePacket = world.playerService.makePlayerTemplatePacket(player);
           world.sendToAllInMap(player, templatePacket);
           
-          // Envia snapshot para outros jogadores para que o cliente recrie o mob com o novo template
-          // Isso evita que o personagem desapareça após receber o plr_tpl update
-          const snapshotPacket = world.playerService.makePlayerSnapshotPacket(player);
-          world.sendToOthersInMap(player, snapshotPacket);
+          // Envia posições atualizadas usando formato pl (pkg > pl > p) para outros
+          // (não precisa enviar para si mesmo neste caso pois não houve mudança de posição)
+          world.playerService.broadcastPlayerPositions(player.mapId, player);
         }
         
         return;
