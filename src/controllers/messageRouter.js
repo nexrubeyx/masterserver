@@ -28,7 +28,7 @@ import { handleLoginOrCreate } from '../services/authService.js';
 import { getAllTemplates, makeTemplatePacket } from '../services/templateService.js';
 import { makeRecipePacket } from '../services/recipeService.js';
 import { validateAppearanceChanges, hasActivePremium } from '../constants/appearance.js';
-import { makeCostumeShopPacket, makeCostumeDataPacket, buyCostume, getCostumeCost } from '../services/costumeService.js';
+import { makeCostumeShopPacket, makeCostumeShopFxPacket, makeCostumeDataPacket, buyCostume, getCostumeCost } from '../services/costumeService.js';
 import { addCostumeToUser, getUserCostumeData, deductPremiumDays } from '../models/User.js';
 import { MAX_COSTUMES } from '../constants/costume.js';
 import { DEFAULT_ATTACK_SPEED } from '../constants/tiles.js';
@@ -317,7 +317,7 @@ export function createMessageRouter(env, logger, world) {
         // === COSTUME SHOP REQUEST ===
         // Cliente solicita abertura da loja de costumes
         if (requestType === 'cs') {
-          // Obtém dados de costumes do usuário
+          // Obtém dados atualizados de costumes do usuário
           const costumeData = await getUserCostumeData(user._id);
           
           // Cria pacote de dados de costumes
@@ -326,13 +326,28 @@ export function createMessageRouter(env, logger, world) {
             ...costumeData
           });
           
-          // Envia os pacotes do costume shop (template + fx) e costume data juntos em pkg
-          const shopPackets = makeCostumeShopPacket(player, user);
-          // shopPackets já contém strings JSON, então costumePacket também precisa ser stringified
-          world.sendRaw(ws, {
-            type: 'pkg',
-            data: JSON.stringify([...shopPackets, JSON.stringify(costumePacket)])
-          });
+          // Verifica se é a primeira vez que o cliente abre a loja de costumes nesta sessão
+          const isFirstRequest = !session._costumeShopSent;
+          
+          if (isFirstRequest) {
+            // Primeira requisição: envia template completo + fx + costume data
+            session._costumeShopSent = true;
+            
+            // Envia os pacotes do costume shop (template + fx) e costume data
+            const shopPackets = makeCostumeShopPacket(player, user);
+            world.sendRaw(ws, {
+              type: 'pkg',
+              data: JSON.stringify([...shopPackets, JSON.stringify(costumePacket)])
+            });
+          } else {
+            // Requisições subsequentes: envia apenas fx + costume data (sem template)
+            const fxPacket = makeCostumeShopFxPacket();
+            
+            world.sendRaw(ws, {
+              type: 'pkg',
+              data: JSON.stringify([fxPacket, JSON.stringify(costumePacket)])
+            });
+          }
           
           return;
         }
