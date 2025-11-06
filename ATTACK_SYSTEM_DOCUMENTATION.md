@@ -44,7 +44,12 @@ Where:
 
 **Attack Position Calculation:**
 The attack effect position is calculated based on the player's facing direction.
-Note: The Monster Legend client uses Cartesian coordinates where Y increases upward (towards top of screen).
+
+**Important Note:** The Monster Legend client uses different coordinate systems for different rendering layers:
+- **Player movement**: Standard screen coordinates (Y increases downward)
+- **Visual effects**: Cartesian coordinates (Y increases upward)
+
+Therefore, the Y offset is inverted for attack effects:
 
 - Direction 0 (UP): effect at (player.x, player.y + 1)
 - Direction 1 (RIGHT): effect at (player.x + 1, player.y)
@@ -130,7 +135,6 @@ case 'A': {
   // Helper function to send attack effect
   const sendAttackEffect = () => {
     // Calculate position in front of player based on direction
-    // Note: Using Cartesian coordinates (Y increases upward)
     const { dx, dy } = getDirectionOffset(player.dir);
     const attackX = player.x + dx;
     const attackY = player.y + dy;
