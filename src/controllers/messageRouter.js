@@ -341,7 +341,7 @@ export function createMessageRouter(env, logger, world) {
             });
           } else {
             // Requisições subsequentes: envia apenas fx + costume data (sem template)
-            const fxPacket = makeCostumeShopFxPacket();
+            const fxPacket = makeCostumeShopFxPacket(player);
             
             world.sendRaw(ws, {
               type: 'pkg',
