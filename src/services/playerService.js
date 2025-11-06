@@ -828,17 +828,9 @@ export class PlayerService {
             data: plData
           };
           
-          // CHANGE: ALL players receive the "pl" packet inside a "pkg"
+          // Send pl packet directly - sendRaw will automatically wrap it in pkg
           // Format: pkg > pl > p (as expected by the client)
-          // Note: Double stringify is required by the client protocol.
-          // First layer: stringify the plPacket to string
-          // Second layer: stringify the array containing the plPacket string
-          const pkgPacket = {
-            type: 'pkg',
-            data: JSON.stringify([JSON.stringify(plPacket)])
-          };
-          
-          this.world.sendTo(receiver, pkgPacket);
+          this.world.sendTo(receiver, plPacket);
         }
       }
     }

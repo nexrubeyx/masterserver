@@ -179,17 +179,9 @@ export class World {
       
       const plPacket = { type: 'pl', data: plData };
       
-      // MUDANÇA: Envia pl dentro de pkg (formato: pkg > pl > p)
-      // Nota: O double stringify é necessário pelo protocolo do cliente.
-      // Primeira camada: stringify do plPacket para string
-      // Segunda camada: stringify do array contendo a string do plPacket
-      const pkgPacket = {
-        type: 'pkg',
-        data: JSON.stringify([JSON.stringify(plPacket)])
-      };
-      
-      // Envia para todos no mapa
-      this.broadcastInMap(mapId, pkgPacket);
+      // Send pl packet directly - broadcastInMap + sendRaw will automatically wrap it in pkg
+      // Format: pkg > pl > p (as expected by the client)
+      this.broadcastInMap(mapId, plPacket);
     }
     
     this.logger.debug(
@@ -215,16 +207,9 @@ broadcastPlayersListToMap(mapId) {
 
     const plPacket = { type: 'pl', data };
     
-    // MUDANÇA: Envia pl dentro de pkg (formato: pkg > pl > p)
-    // Nota: O double stringify é necessário pelo protocolo do cliente.
-    // Primeira camada: stringify do plPacket para string
-    // Segunda camada: stringify do array contendo a string do plPacket
-    const pkgPacket = {
-      type: 'pkg',
-      data: JSON.stringify([JSON.stringify(plPacket)])
-    };
-    
-    this.broadcastInMap(mapId, pkgPacket);
+    // Send pl packet directly - broadcastInMap + sendRaw will automatically wrap it in pkg
+    // Format: pkg > pl > p (as expected by the client)
+    this.broadcastInMap(mapId, plPacket);
   } catch (err) {
     this.logger?.warn({ err: err?.message, stack: err?.stack, mapId }, 'Falha ao broadcast pl');
   }
@@ -644,8 +629,25 @@ const poofedTemplate = {
     if (ws.readyState !== 1) return;
 
     try {
+      // === AUTO-WRAP PL PACKETS IN PKG ===
+      // If the packet is type 'pl', automatically wrap it in a 'pkg'
+      // This ensures the correct hierarchy: pkg > pl > p
+      if (obj && obj.type === 'pl' && Array.isArray(obj.data)) {
+        // Wrap the pl packet in a pkg packet
+        // Note: Double stringify is required by the client protocol
+        // First layer: stringify the plPacket to string
+        // Second layer: stringify the array containing the plPacket string
+        obj = {
+          type: 'pkg',
+          data: JSON.stringify([JSON.stringify(obj)])
+        };
+        
+        this.logger.debug('Auto-wrapped pl packet in pkg packet');
+      }
+      
       // === INTERCEPTA PACOTES PKG PARA ADICIONAR PL ===
       // Se o pacote é do tipo 'pkg', adiciona automaticamente o pacote 'pl'
+      // APENAS se não houver já um pacote 'pl' dentro (para evitar duplicação)
       if (obj && obj.type === 'pkg' && typeof obj.data === 'string') {
         // Encontra a sessão deste WebSocket
         const session = this.sessions.get(ws);
@@ -653,50 +655,68 @@ const poofedTemplate = {
         if (session && session.player) {
           const player = session.player;
           
-          // Obtém todos os jogadores no mesmo mapa
-          const allPlayersInMap = this.getPlayersInMap(player.mapId);
-          
-          // Filtra apenas jogadores visíveis (dentro do range de visão)
-          const visiblePlayers = allPlayersInMap.filter(p => {
-            return this.playerService.isPlayerInViewRange(player, p);
-          });
-          
-          // Cria dados da lista de jogadores
-          const plData = this.playerService.makePlayerListData(visiblePlayers);
-          
-          // Cria pacote pl
-          const plPacket = {
-            type: 'pl',
-            data: plData
-          };
-          
-          // Desempacota os dados do pkg existente
+          // Desempacota os dados do pkg para verificar se já tem um 'pl'
           let pkgData = [];
+          let hasPlPacket = false;
+          
           try {
             pkgData = JSON.parse(obj.data);
             // Verifica se é realmente um array
             if (!Array.isArray(pkgData)) {
               pkgData = [];
+            } else {
+              // Verifica se já existe um pacote 'pl' no array
+              for (const item of pkgData) {
+                try {
+                  const parsed = JSON.parse(item);
+                  if (parsed && parsed.type === 'pl') {
+                    hasPlPacket = true;
+                    break;
+                  }
+                } catch (e) {
+                  // Ignora erros de parse
+                }
+              }
             }
           } catch (e) {
             // Se falhar ao parsear, usa array vazio
             pkgData = [];
           }
           
-          // Adiciona o pacote pl no início do array
-          // Mantém como string para consistência com o formato existente do pkg.data
-          pkgData.unshift(JSON.stringify(plPacket));
-          
-          // Re-empacota os dados do pkg
-          obj = {
-            type: 'pkg',
-            data: JSON.stringify(pkgData)
-          };
-          
-          this.logger.debug(
-            { sessionId: player.sessionId, visiblePlayers: visiblePlayers.length },
-            'Auto-incluído pl packet em pkg packet'
-          );
+          // Só adiciona 'pl' se não houver um já
+          if (!hasPlPacket) {
+            // Obtém todos os jogadores no mesmo mapa
+            const allPlayersInMap = this.getPlayersInMap(player.mapId);
+            
+            // Filtra apenas jogadores visíveis (dentro do range de visão)
+            const visiblePlayers = allPlayersInMap.filter(p => {
+              return this.playerService.isPlayerInViewRange(player, p);
+            });
+            
+            // Cria dados da lista de jogadores
+            const plData = this.playerService.makePlayerListData(visiblePlayers);
+            
+            // Cria pacote pl
+            const plPacket = {
+              type: 'pl',
+              data: plData
+            };
+            
+            // Adiciona o pacote pl no início do array
+            // Mantém como string para consistência com o formato existente do pkg.data
+            pkgData.unshift(JSON.stringify(plPacket));
+            
+            // Re-empacota os dados do pkg
+            obj = {
+              type: 'pkg',
+              data: JSON.stringify(pkgData)
+            };
+            
+            this.logger.debug(
+              { sessionId: player.sessionId, visiblePlayers: visiblePlayers.length },
+              'Auto-incluído pl packet em pkg packet'
+            );
+          }
         }
       }
       
@@ -863,17 +883,9 @@ const poofedTemplate = {
           data: plData
         };
         
-        // MUDANÇA: TODOS os jogadores recebem o pacote "pl" dentro de um "pkg"
-        // Formato: pkg > pl > p (conforme esperado pelo cliente)
-        // Nota: O double stringify é necessário pelo protocolo do cliente.
-        // Primeira camada: stringify do plPacket para string
-        // Segunda camada: stringify do array contendo a string do plPacket
-        const pkgPacket = {
-          type: 'pkg',
-          data: JSON.stringify([JSON.stringify(plPacket)])
-        };
-        
-        this.sendTo(receiver, pkgPacket);
+        // Send pl packet directly - sendTo + sendRaw will automatically wrap it in pkg
+        // Format: pkg > pl > p (as expected by the client)
+        this.sendTo(receiver, plPacket);
       }
     }
   }
