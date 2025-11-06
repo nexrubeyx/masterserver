@@ -192,14 +192,14 @@ export function createMessageRouter(env, logger, world) {
         
         world.itemService.sendInventoryToClient(player);
         
-        // 8.5) Envia pacote 'game' com informações de premium e locks de costume
+        // 8.5) Envia pacote 'game' com informações de premium e listas de aparência premium
         // Este pacote é esperado pelo cliente para habilitar funcionalidades premium
         world.sendTo(player, {
           type: 'game',
-          pr: player.premium || 0,  // Dias de premium
-          lb: '',  // Lock body (string vazia = nada bloqueado)
-          lh: '',  // Lock hair (string vazia = nada bloqueado)
-          lc: ''   // Lock clothes (string vazia = nada bloqueado)
+          lh: [5, 9, 10, 11, 12, 14, 15, 16, 17, 18, 19, 20, 22],  // Premium hair list
+          lc: [6, 7, 8, 9, 10, 12, 13, 14, 15, 16],                // Premium clothes list
+          lb: [9],                                                   // Premium body list
+          pr: player.premium || 0                                    // Dias de premium
         });
         
         // 9) Envia comando de música
