@@ -257,6 +257,13 @@ broadcastPlayersListToMap(mapId) {
         // Para movimento do jogador
         this.playerService.stopMoving(session.player);
 
+        // Clear attack interval if exists
+        if (session.player._attackInterval) {
+          clearInterval(session.player._attackInterval);
+          session.player._attackInterval = null;
+        }
+        session.player.attacking = false;
+
         // Salva estado completo no banco (não bloqueia shutdown)
         await this.playerService.persistFullState(session.player);
       } catch (err) {
@@ -447,7 +454,16 @@ handleDisconnect(ws) {
     player.moving = false;
   } catch {}
 
-  // 2) Remove a sessão WebSocket (jogador não pode mais receber mensagens)
+  // 2) Clear attack interval if exists
+  try {
+    if (player._attackInterval) {
+      clearInterval(player._attackInterval);
+      player._attackInterval = null;
+    }
+    player.attacking = false;
+  } catch {}
+
+  // 3) Remove a sessão WebSocket (jogador não pode mais receber mensagens)
   this.sessions.delete(ws);
 
   // 3) Marca o jogador como "sleeping" (dormindo)

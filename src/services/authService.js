@@ -208,6 +208,10 @@ async function ensurePlayer(env, logger, world, { username, isGuest, email, user
     existingPlayer.dbId = existingPlayer._id;
     // Adiciona informação de premium ao player para acesso rápido
     existingPlayer.premium = userDoc.premium || 0;
+    // Garante que attackSpeed existe (para personagens antigos sem este campo)
+    if (!Number.isFinite(existingPlayer.attackSpeed)) {
+      existingPlayer.attackSpeed = 1000;  // Valor padrão: 1000ms (1 segundo)
+    }
     return { user: userDoc, player: existingPlayer, created: false };
   }
 

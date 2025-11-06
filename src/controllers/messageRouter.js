@@ -715,30 +715,56 @@ export function createMessageRouter(env, logger, world) {
         
         const player = session.player;
         
+        // If already attacking, ignore (prevent multiple intervals)
+        if (player.attacking) return;
+        
         // Mark player as attacking (state flag for game logic)
-        // This flag can be used for attack cooldowns, damage calculations, etc.
         player.attacking = true;
         
-        // Create attack effect packet (swing animation with swish sound)
-        const attackEffect = {
-          type: 'fx',
-          tpl: 'swing',
-          x: player.x,
-          y: player.y,
-          s: 'swish',
-          d: 2
+        // Helper function to send attack effect
+        const sendAttackEffect = () => {
+          // Calculate position in front of player based on direction
+          // Direction: 0=up, 1=right, 2=down, 3=left
+          const dx = (player.dir === 1 ? 1 : player.dir === 3 ? -1 : 0);
+          const dy = (player.dir === 2 ? 1 : player.dir === 0 ? -1 : 0);
+          const attackX = player.x + dx;
+          const attackY = player.y + dy;
+          
+          // Create attack effect packet (swing animation with swish sound)
+          const attackEffect = {
+            type: 'fx',
+            tpl: 'swing',
+            x: attackX,
+            y: attackY,
+            s: 'swish',
+            d: 2
+          };
+          
+          // Broadcast effect to all players in map using pkg format
+          const pkgData = [JSON.stringify(attackEffect)];
+          const attackPacket = {
+            type: 'pkg',
+            data: JSON.stringify(pkgData)
+          };
+          
+          world.sendToAllInMap(player, attackPacket);
         };
         
-        // Broadcast effect to all players in map using pkg format
-        // Note: Double JSON.stringify is intentional - pkg.data expects a JSON string
-        // containing an array of JSON strings (protocol requirement)
-        const pkgData = [JSON.stringify(attackEffect)];
-        const attackPacket = {
-          type: 'pkg',
-          data: JSON.stringify(pkgData)
-        };
+        // Send first attack effect immediately
+        sendAttackEffect();
         
-        world.sendToAllInMap(player, attackPacket);
+        // Start attack loop with player's attackSpeed (default: 1000ms)
+        const attackSpeed = player.attackSpeed || 1000;
+        player._attackInterval = setInterval(() => {
+          // Check if player is still attacking (could have been stopped)
+          if (!player.attacking) {
+            clearInterval(player._attackInterval);
+            player._attackInterval = null;
+            return;
+          }
+          
+          sendAttackEffect();
+        }, attackSpeed);
         
         return;
       }
@@ -753,6 +779,12 @@ export function createMessageRouter(env, logger, world) {
         
         // Mark player as not attacking
         player.attacking = false;
+        
+        // Clear attack interval if it exists
+        if (player._attackInterval) {
+          clearInterval(player._attackInterval);
+          player._attackInterval = null;
+        }
         
         return;
       }
