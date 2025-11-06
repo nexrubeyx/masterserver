@@ -102,8 +102,8 @@ export function loadEnv() {
 
     // === MOVIMENTO ===
     // Velocidade padrão do jogador em milissegundos por tile
-    // 750ms = aproximadamente 1.3 tiles por segundo
-    DEFAULT_SPEED_MS: parseInt(process.env.DEFAULT_SPEED_MS || '750', 10),
+    // 350ms = aproximadamente 2.86 tiles por segundo
+    DEFAULT_SPEED_MS: parseInt(process.env.DEFAULT_SPEED_MS || '350', 10),
 
     // === TLS/SSL (HTTPS/WSS) ===
     // Se true, habilita servidor HTTPS/WSS com certificados SSL

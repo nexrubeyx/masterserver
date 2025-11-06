@@ -349,7 +349,7 @@ broadcastPlayersListToMap(mapId) {
     player.level = player.level || this.env.DEFAULT_LEVEL;
 
     // === ESTADO DE MOVIMENTO ===
-    player.speed = player.speed || 750;  // Velocidade em ms/tile
+    player.speed = player.speed || 350;  // Velocidade em ms/tile
     player.moving = false;               // Se está se movendo atualmente
     player._accumMs = 0;                 // Acumulador de tempo para movimento
     player.dir = Number.isInteger(player.dir) ? player.dir : 0;  // Direção (0-3)
