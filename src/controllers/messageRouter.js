@@ -28,7 +28,7 @@ import { handleLoginOrCreate } from '../services/authService.js';
 import { getAllTemplates, makeTemplatePacket } from '../services/templateService.js';
 import { makeRecipePacket } from '../services/recipeService.js';
 import { validateAppearanceChanges, hasActivePremium } from '../constants/appearance.js';
-import { makeCostumeShopPacket, makeCostumeDataPacket, buyCostume, getCostumeCost } from '../services/costumeService.js';
+import { makeCostumeShopPacket, makeCostumeShopFxPacket, makeCostumeDataPacket, buyCostume, getCostumeCost } from '../services/costumeService.js';
 import { addCostumeToUser, getUserCostumeData, deductPremiumDays } from '../models/User.js';
 import { MAX_COSTUMES } from '../constants/costume.js';
 import { DEFAULT_ATTACK_SPEED } from '../constants/tiles.js';
@@ -332,14 +332,7 @@ export function createMessageRouter(env, logger, world) {
             });
           } else {
             // Requisições subsequentes: envia apenas o fx (sem template)
-            const fxPacket = JSON.stringify({
-              type: 'fx',
-              tpl: 'costume_shop',
-              x: 39,
-              y: 3,
-              s: -1,
-              d: 0
-            });
+            const fxPacket = makeCostumeShopFxPacket();
             
             world.sendRaw(ws, {
               type: 'pkg',

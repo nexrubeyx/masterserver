@@ -76,6 +76,23 @@ export function makeCostumeShopPacket(player, user) {
 }
 
 /**
+ * Gera pacote fx simplificado para costume shop (sem template)
+ * Usado para requisições subsequentes
+ * 
+ * @returns {string} Pacote fx serializado como JSON string
+ */
+export function makeCostumeShopFxPacket() {
+  return JSON.stringify({
+    type: 'fx',
+    tpl: 'costume_shop',
+    x: 39,
+    y: 3,
+    s: -1,
+    d: 0
+  });
+}
+
+/**
  * Envia dados de costumes para o cliente
  * 
  * @param {Object} player - Objeto do jogador
