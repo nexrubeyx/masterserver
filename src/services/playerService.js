@@ -420,6 +420,21 @@ export class PlayerService {
   }
 
   /**
+   * Envia snapshot de correção imediata ao jogador
+   * 
+   * Chamado quando movimento é bloqueado para garantir que o cliente
+   * receba imediatamente as coordenadas corretas (dx=x, dy=y) e evite
+   * bugs visuais de dessincronia.
+   * 
+   * @param {Object} player - Jogador que teve movimento bloqueado
+   * @private
+   */
+  _sendImmediateCorrection(player) {
+    const correctionSnapshot = this.makePlayerSnapshotPacket(player);
+    this.world.sendTo(player, correctionSnapshot);
+  }
+
+  /**
    * Tick de atualização do jogador
    * 
    * Chamado pelo game loop a cada TICK_MS (padrão 50ms).
@@ -522,8 +537,7 @@ export class PlayerService {
           // Envia snapshot corrigido imediatamente ao próprio player
           // para garantir que o cliente veja a posição correta (dx=x, dy=y)
           // e evitar bugs visuais de dessincronia
-          const correctionSnapshot = this.makePlayerSnapshotPacket(player);
-          this.world.sendTo(player, correctionSnapshot);
+          this._sendImmediateCorrection(player);
           
           this.logger.debug(
             { sessionId: player.sessionId, lastValid: {x: lastValidX, y: lastValidY}, attempted: {x: nx, y: ny} },
@@ -558,8 +572,7 @@ export class PlayerService {
               // Envia snapshot corrigido imediatamente ao próprio player
               // para garantir que o cliente veja a posição correta (dx=x, dy=y)
               // e evitar bugs visuais de dessincronia
-              const correctionSnapshot = this.makePlayerSnapshotPacket(player);
-              this.world.sendTo(player, correctionSnapshot);
+              this._sendImmediateCorrection(player);
               
               this.logger.debug(
                 { sessionId: player.sessionId, lastValid: {x: lastValidX, y: lastValidY}, attempted: {x: nx, y: ny}, tile: tileAtTarget },
@@ -589,8 +602,7 @@ export class PlayerService {
             // Envia snapshot corrigido imediatamente ao próprio player
             // para garantir que o cliente veja a posição correta (dx=x, dy=y)
             // e evitar bugs visuais de dessincronia
-            const correctionSnapshot = this.makePlayerSnapshotPacket(player);
-            this.world.sendTo(player, correctionSnapshot);
+            this._sendImmediateCorrection(player);
             
             this.logger.debug(
               { sessionId: player.sessionId, lastValid: {x: lastValidX, y: lastValidY}, attempted: {x: nx, y: ny}, tile: tileAtTarget },
