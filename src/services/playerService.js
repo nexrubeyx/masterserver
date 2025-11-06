@@ -915,11 +915,11 @@ export class PlayerService {
   broadcastPlayerPositions(mapId, excludePlayer = null) {
     if (!mapId) return;
     
-    // Get all players in the map
+    // Gets all players in the map
     const allPlayersInMap = this.world.getPlayersInMap(mapId);
     if (allPlayersInMap.length === 0) return;
     
-    // For each receiver in the map
+    // Iterates through each receiver in the map
     for (const receiver of allPlayersInMap) {
       // Skip if this is the excluded player
       if (excludePlayer && receiver === excludePlayer) continue;
