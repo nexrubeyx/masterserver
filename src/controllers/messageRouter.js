@@ -348,6 +348,10 @@ export function createMessageRouter(env, logger, world) {
             world.sendTo(player, snapshotPacket);
             world.sendToOthersInMap(player, snapshotPacket);
             
+            // Broadcast do "pl" (player list) para garantir que todos os clientes no mapa
+            // vejam a aparência atualizada na lista de jogadores (pkg > pl > p)
+            world.broadcastPlayersListToMap(player.mapId);
+            
             return;
           }
           
@@ -395,6 +399,10 @@ export function createMessageRouter(env, logger, world) {
           world.sendTo(player, snapshotPacket);
           world.sendToOthersInMap(player, snapshotPacket);
           
+          // Broadcast do "pl" (player list) para garantir que todos os clientes no mapa
+          // vejam a aparência atualizada na lista de jogadores (pkg > pl > p)
+          world.broadcastPlayersListToMap(player.mapId);
+          
           return;
         }
         
@@ -424,6 +432,10 @@ export function createMessageRouter(env, logger, world) {
           const snapshotPacket = world.playerService.makePlayerSnapshotPacket(player);
           world.sendTo(player, snapshotPacket);
           world.sendToOthersInMap(player, snapshotPacket);
+          
+          // Broadcast do "pl" (player list) para garantir que todos os clientes no mapa
+          // vejam a aparência atualizada na lista de jogadores (pkg > pl > p)
+          world.broadcastPlayersListToMap(player.mapId);
           
           return;
         }
@@ -508,6 +520,10 @@ export function createMessageRouter(env, logger, world) {
             
             // Envia snapshot para outros jogadores para que vejam a atualização
             world.sendToOthersInMap(player, snapshotPacket);
+            
+            // Broadcast do "pl" (player list) para garantir que todos os clientes no mapa
+            // vejam a aparência atualizada na lista de jogadores (pkg > pl > p)
+            world.broadcastPlayersListToMap(player.mapId);
           }
           
           return;
