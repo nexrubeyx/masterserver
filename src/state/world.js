@@ -645,27 +645,27 @@ const poofedTemplate = {
         this.logger.debug('Auto-wrapped pl packet in pkg packet');
       }
       
-      // === INTERCEPTA PACOTES PKG PARA ADICIONAR PL ===
-      // Se o pacote é do tipo 'pkg', adiciona automaticamente o pacote 'pl'
-      // APENAS se não houver já um pacote 'pl' dentro (para evitar duplicação)
+      // === INTERCEPT PKG PACKETS TO ADD PL ===
+      // If the packet is type 'pkg', automatically add the 'pl' packet
+      // ONLY if there isn't already a 'pl' packet inside (to avoid duplication)
       if (obj && obj.type === 'pkg' && typeof obj.data === 'string') {
-        // Encontra a sessão deste WebSocket
+        // Find the session for this WebSocket
         const session = this.sessions.get(ws);
         
         if (session && session.player) {
           const player = session.player;
           
-          // Desempacota os dados do pkg para verificar se já tem um 'pl'
+          // Unpack pkg data to check if it already has a 'pl' packet
           let pkgData = [];
           let hasPlPacket = false;
           
           try {
             pkgData = JSON.parse(obj.data);
-            // Verifica se é realmente um array
+            // Verify it's actually an array
             if (!Array.isArray(pkgData)) {
               pkgData = [];
             } else {
-              // Verifica se já existe um pacote 'pl' no array
+              // Check if a 'pl' packet already exists in the array
               for (const item of pkgData) {
                 try {
                   const parsed = JSON.parse(item);
@@ -674,39 +674,39 @@ const poofedTemplate = {
                     break;
                   }
                 } catch (e) {
-                  // Ignora erros de parse
+                  // Ignore parse errors
                 }
               }
             }
           } catch (e) {
-            // Se falhar ao parsear, usa array vazio
+            // If parsing fails, use empty array
             pkgData = [];
           }
           
-          // Só adiciona 'pl' se não houver um já
+          // Only add 'pl' if there isn't one already
           if (!hasPlPacket) {
-            // Obtém todos os jogadores no mesmo mapa
+            // Get all players in the same map
             const allPlayersInMap = this.getPlayersInMap(player.mapId);
             
-            // Filtra apenas jogadores visíveis (dentro do range de visão)
+            // Filter only visible players (within view range)
             const visiblePlayers = allPlayersInMap.filter(p => {
               return this.playerService.isPlayerInViewRange(player, p);
             });
             
-            // Cria dados da lista de jogadores
+            // Create player list data
             const plData = this.playerService.makePlayerListData(visiblePlayers);
             
-            // Cria pacote pl
+            // Create pl packet
             const plPacket = {
               type: 'pl',
               data: plData
             };
             
-            // Adiciona o pacote pl no início do array
-            // Mantém como string para consistência com o formato existente do pkg.data
+            // Add the pl packet at the beginning of the array
+            // Keep as string for consistency with existing pkg.data format
             pkgData.unshift(JSON.stringify(plPacket));
             
-            // Re-empacota os dados do pkg
+            // Re-package the pkg data
             obj = {
               type: 'pkg',
               data: JSON.stringify(pkgData)
@@ -714,7 +714,7 @@ const poofedTemplate = {
             
             this.logger.debug(
               { sessionId: player.sessionId, visiblePlayers: visiblePlayers.length },
-              'Auto-incluído pl packet em pkg packet'
+              'Auto-included pl packet in pkg packet'
             );
           }
         }
