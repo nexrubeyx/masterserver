@@ -14,6 +14,7 @@
  *   x: number,                  // Posição X no mapa
  *   y: number,                  // Posição Y no mapa
  *   speed: number,              // Velocidade em ms/tile
+ *   attackSpeed: number,        // Velocidade de ataque em ms (padrão: 1000ms)
  *   inventory: Array,           // Array de itens do inventário
  *   appearance: {               // Aparência visual do personagem
  *     body: number,             // Sprite do corpo
@@ -31,6 +32,7 @@
  */
 
 import { getDB } from '../db/mongo.js';
+import { DEFAULT_ATTACK_SPEED } from '../constants/tiles.js';
 
 /**
  * Busca um personagem pelo ID do usuário
@@ -61,7 +63,7 @@ export async function getPlayerByUserId(userId) {
  * Este é chamado quando um novo usuário é criado ou quando um guest
  * faz login pela primeira vez.
  */
-export async function createPlayer({ userId, name, mapId, x, y, appearance, speed }) {
+export async function createPlayer({ userId, name, mapId, x, y, appearance, speed, attackSpeed }) {
   const db = getDB();
   
   // Cria o documento do personagem
@@ -73,6 +75,7 @@ export async function createPlayer({ userId, name, mapId, x, y, appearance, spee
     x,                                                    // Posição X inicial
     y,                                                    // Posição Y inicial
     speed: Number.isFinite(speed) ? speed : 350,          // Velocidade (padrão 350ms/tile)
+    attackSpeed: Number.isFinite(attackSpeed) ? attackSpeed : DEFAULT_ATTACK_SPEED,  // Velocidade de ataque
     inventory: [],                                        // Inventário vazio
     appearance,                                           // Aparência visual completa
     createdAt: new Date(),                                // Data de criação

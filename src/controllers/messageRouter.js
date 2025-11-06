@@ -31,6 +31,37 @@ import { validateAppearanceChanges, hasActivePremium } from '../constants/appear
 import { makeCostumeShopPacket, makeCostumeDataPacket, buyCostume, getCostumeCost } from '../services/costumeService.js';
 import { addCostumeToUser, getUserCostumeData, deductPremiumDays } from '../models/User.js';
 import { MAX_COSTUMES } from '../constants/costume.js';
+import { DEFAULT_ATTACK_SPEED } from '../constants/tiles.js';
+
+/**
+ * Calculates offset coordinates based on direction
+ * Direction: 0=up, 1=right, 2=down, 3=left
+ * 
+ * @param {number} direction - Player facing direction (0-3)
+ * @returns {Object} { dx, dy } - Coordinate offsets
+ */
+function getDirectionOffset(direction) {
+  const offsets = [
+    { dx: 0, dy: -1 },  // 0: UP
+    { dx: 1, dy: 0 },   // 1: RIGHT
+    { dx: 0, dy: 1 },   // 2: DOWN
+    { dx: -1, dy: 0 }   // 3: LEFT
+  ];
+  return offsets[direction] || { dx: 0, dy: 0 };
+}
+
+/**
+ * Clears attack interval and resets attack state
+ * 
+ * @param {Object} player - Player object
+ */
+function clearAttackInterval(player) {
+  if (player._attackInterval) {
+    clearInterval(player._attackInterval);
+    player._attackInterval = null;
+  }
+  player.attacking = false;
+}
 
 /**
  * Cria função roteadora de mensagens
@@ -715,30 +746,53 @@ export function createMessageRouter(env, logger, world) {
         
         const player = session.player;
         
+        // If already attacking, ignore (prevent multiple intervals)
+        if (player.attacking) return;
+        
         // Mark player as attacking (state flag for game logic)
-        // This flag can be used for attack cooldowns, damage calculations, etc.
         player.attacking = true;
         
-        // Create attack effect packet (swing animation with swish sound)
-        const attackEffect = {
-          type: 'fx',
-          tpl: 'swing',
-          x: player.x,
-          y: player.y,
-          s: 'swish',
-          d: 2
+        // Helper function to send attack effect
+        const sendAttackEffect = () => {
+          // Calculate position in front of player based on direction
+          const { dx, dy } = getDirectionOffset(player.dir);
+          const attackX = player.x + dx;
+          const attackY = player.y + dy;
+          
+          // Create attack effect packet (swing animation with swish sound)
+          const attackEffect = {
+            type: 'fx',
+            tpl: 'swing',
+            x: attackX,
+            y: attackY,
+            s: 'swish',
+            d: 2
+          };
+          
+          // Broadcast effect to all players in map using pkg format
+          const pkgData = [JSON.stringify(attackEffect)];
+          const attackPacket = {
+            type: 'pkg',
+            data: JSON.stringify(pkgData)
+          };
+          
+          world.sendToAllInMap(player, attackPacket);
         };
         
-        // Broadcast effect to all players in map using pkg format
-        // Note: Double JSON.stringify is intentional - pkg.data expects a JSON string
-        // containing an array of JSON strings (protocol requirement)
-        const pkgData = [JSON.stringify(attackEffect)];
-        const attackPacket = {
-          type: 'pkg',
-          data: JSON.stringify(pkgData)
-        };
+        // Send first attack effect immediately
+        sendAttackEffect();
         
-        world.sendToAllInMap(player, attackPacket);
+        // Start attack loop with player's attackSpeed
+        const attackSpeed = player.attackSpeed || DEFAULT_ATTACK_SPEED;
+        player._attackInterval = setInterval(() => {
+          // Safety check: ensure player still exists and is attacking
+          if (!player || !player.attacking) {
+            clearAttackInterval(player);
+            return;
+          }
+          
+          sendAttackEffect();
+        }, attackSpeed);
         
         return;
       }
@@ -751,8 +805,8 @@ export function createMessageRouter(env, logger, world) {
         
         const player = session.player;
         
-        // Mark player as not attacking
-        player.attacking = false;
+        // Clear attack interval and reset state
+        clearAttackInterval(player);
         
         return;
       }

@@ -23,6 +23,7 @@ import { b64decode } from '../utils/base64.js';
 import { findUserByUsername, createUser, ensureUserPermissionDefault, checkAndUpdatePremium } from '../models/User.js';
 import { createPlayer, getPlayerByUserId } from '../models/Player.js';
 import { PERMISSIONS } from '../constants/permissions.js';
+import { DEFAULT_ATTACK_SPEED } from '../constants/tiles.js';
 
 // Número de rounds do bcrypt para hashing de senhas
 // Maior = mais seguro mas mais lento (10 é um bom balanço)
@@ -208,6 +209,10 @@ async function ensurePlayer(env, logger, world, { username, isGuest, email, user
     existingPlayer.dbId = existingPlayer._id;
     // Adiciona informação de premium ao player para acesso rápido
     existingPlayer.premium = userDoc.premium || 0;
+    // Garante que attackSpeed existe (para personagens antigos sem este campo)
+    if (!Number.isFinite(existingPlayer.attackSpeed)) {
+      existingPlayer.attackSpeed = DEFAULT_ATTACK_SPEED;
+    }
     return { user: userDoc, player: existingPlayer, created: false };
   }
 
