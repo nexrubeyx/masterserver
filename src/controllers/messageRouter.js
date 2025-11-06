@@ -1,25 +1,27 @@
 /**
- * Roteador de Mensagens - Dispatcher de Comandos do Cliente
+ * Message Router - Client Command Dispatcher
  * 
- * Este módulo cria o roteador que processa todas as mensagens validadas
- * recebidas dos clientes e as direciona para os handlers apropriados.
+ * This module creates the router that processes all validated messages
+ * received from clients and routes them to the appropriate handlers.
  * 
- * Tipos de mensagem tratados:
- * - client: informações do cliente (versão, plataforma)
- * - login/guest: autenticação e entrada no jogo
- * - chat: mensagens de chat
- * - m: mudança de direção do personagem
- * - h: início/parada de movimento
+ * Message types handled:
+ * - client: client information (version, platform)
+ * - login/guest: authentication and game entry
+ * - chat: chat messages
+ * - m: character direction change
+ * - h: movement start/stop
  * - P: ping/keepalive
- * - sw: troca de slots no inventário
- * - u: usar item consumível do inventário
+ * - sw: inventory slot swap
+ * - u: use consumable item from inventory
+ * - A: initiate and maintain attack
+ * - a: release attack
  * 
- * Fluxo de processamento:
- * 1. WebSocket recebe mensagem bruta
- * 2. WebSocket valida JSON e schema
- * 3. Router processa a mensagem validada
- * 4. Services executam a lógica de negócio
- * 5. World envia resposta ao cliente
+ * Processing flow:
+ * 1. WebSocket receives raw message
+ * 2. WebSocket validates JSON and schema
+ * 3. Router processes the validated message
+ * 4. Services execute business logic
+ * 5. World sends response to client
  */
 
 import { handleLoginOrCreate } from '../services/authService.js';
@@ -701,6 +703,56 @@ export function createMessageRouter(env, logger, world) {
             'Player used item successfully'
           );
         }
+        
+        return;
+      }
+
+      // === ATTACK HOLD ===
+      // Player initiates and maintains attack
+      case 'A': {
+        const session = world.getSession(ws);
+        if (!session) return;  // No session = not authenticated, ignore
+        
+        const player = session.player;
+        
+        // Mark player as attacking (state flag for game logic)
+        // This flag can be used for attack cooldowns, damage calculations, etc.
+        player.attacking = true;
+        
+        // Create attack effect packet (swing animation with swish sound)
+        const attackEffect = {
+          type: 'fx',
+          tpl: 'swing',
+          x: player.x,
+          y: player.y,
+          s: 'swish',
+          d: 2
+        };
+        
+        // Broadcast effect to all players in map using pkg format
+        // Note: Double JSON.stringify is intentional - pkg.data expects a JSON string
+        // containing an array of JSON strings (protocol requirement)
+        const pkgData = [JSON.stringify(attackEffect)];
+        const attackPacket = {
+          type: 'pkg',
+          data: JSON.stringify(pkgData)
+        };
+        
+        world.sendToAllInMap(player, attackPacket);
+        
+        return;
+      }
+
+      // === ATTACK RELEASE ===
+      // Player releases attack
+      case 'a': {
+        const session = world.getSession(ws);
+        if (!session) return;  // No session = not authenticated, ignore
+        
+        const player = session.player;
+        
+        // Mark player as not attacking
+        player.attacking = false;
         
         return;
       }

@@ -1,29 +1,31 @@
 /**
- * Esquema de Protocolo - Validação de Mensagens
+ * Protocol Schema - Message Validation
  * 
- * Este módulo define e valida a estrutura de todas as mensagens trocadas
- * entre cliente e servidor usando JSON Schema e a biblioteca Ajv.
+ * This module defines and validates the structure of all messages exchanged
+ * between client and server using JSON Schema and the Ajv library.
  * 
- * Benefícios da validação:
- * - Previne mensagens malformadas de crashar o servidor
- * - Garante tipos corretos (números, strings, etc)
- * - Documenta o formato esperado de cada tipo de mensagem
- * - Rejeita mensagens inválidas antes de processar
+ * Validation benefits:
+ * - Prevents malformed messages from crashing the server
+ * - Ensures correct types (numbers, strings, etc)
+ * - Documents the expected format of each message type
+ * - Rejects invalid messages before processing
  * 
- * Tipos de mensagem suportados:
- * - client: informações do cliente (versão, plataforma)
- * - login: autenticação com usuário/senha
- * - guest: entrada como visitante
- * - chat: mensagem de chat
- * - h: comando de movimento (hold)
- * - m: comando de direção (move)
+ * Supported message types:
+ * - client: client information (version, platform)
+ * - login: authentication with user/password
+ * - guest: entry as visitor
+ * - chat: chat message
+ * - h: movement command (hold)
+ * - m: direction command (move)
  * - P: ping/keepalive
- * - pickup: coletar objeto
- * - bld: construir template no tile atual
- * - setobj: setar objetos do tile
- * - clrobj: limpar objetos do tile
- * - sw: trocar slots do inventário
- * - u: usar item consumível do inventário
+ * - pickup: collect object
+ * - bld: build template on current tile
+ * - setobj: set tile objects
+ * - clrobj: clear tile objects
+ * - sw: swap inventory slots
+ * - u: use consumable item from inventory
+ * - A: initiate and maintain attack
+ * - a: release attack
  */
 
 import Ajv from 'ajv';
@@ -283,6 +285,32 @@ export const schemaByType = {
     properties: {
       type: { const: 'u' },
       slot: { type: 'integer', minimum: 0, maximum: 99 }
+    },
+    additionalProperties: false
+  },
+
+  /**
+   * Mensagem 'A' - Attack hold
+   * Inicia e mantém o ataque
+   */
+  A: {
+    type: 'object',
+    required: ['type'],
+    properties: {
+      type: { const: 'A' }
+    },
+    additionalProperties: false
+  },
+
+  /**
+   * Mensagem 'a' - Attack release
+   * Solta o ataque
+   */
+  a: {
+    type: 'object',
+    required: ['type'],
+    properties: {
+      type: { const: 'a' }
     },
     additionalProperties: false
   }
