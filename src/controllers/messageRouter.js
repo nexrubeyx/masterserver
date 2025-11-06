@@ -42,9 +42,9 @@ import { DEFAULT_ATTACK_SPEED } from '../constants/tiles.js';
  */
 function getDirectionOffset(direction) {
   const offsets = [
-    { dx: 0, dy: -1 },  // 0: UP
+    { dx: 0, dy: 1 },   // 0: UP (inverted Y for effects)
     { dx: 1, dy: 0 },   // 1: RIGHT
-    { dx: 0, dy: 1 },   // 2: DOWN
+    { dx: 0, dy: -1 },  // 2: DOWN (inverted Y for effects)
     { dx: -1, dy: 0 }   // 3: LEFT
   ];
   return offsets[direction] || { dx: 0, dy: 0 };

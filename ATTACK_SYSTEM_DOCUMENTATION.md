@@ -43,10 +43,12 @@ Where:
 - `d: 2` - Duration in seconds
 
 **Attack Position Calculation:**
-The attack effect position is calculated based on the player's facing direction:
-- Direction 0 (UP): effect at (player.x, player.y - 1)
+The attack effect position is calculated based on the player's facing direction.
+Note: The Monster Legend client uses Cartesian coordinates where Y increases upward (towards top of screen).
+
+- Direction 0 (UP): effect at (player.x, player.y + 1)
 - Direction 1 (RIGHT): effect at (player.x + 1, player.y)
-- Direction 2 (DOWN): effect at (player.x, player.y + 1)
+- Direction 2 (DOWN): effect at (player.x, player.y - 1)
 - Direction 3 (LEFT): effect at (player.x - 1, player.y)
 
 #### Attack Release (Type: "a")
@@ -128,8 +130,8 @@ case 'A': {
   // Helper function to send attack effect
   const sendAttackEffect = () => {
     // Calculate position in front of player based on direction
-    const dx = (player.dir === 1 ? 1 : player.dir === 3 ? -1 : 0);
-    const dy = (player.dir === 2 ? 1 : player.dir === 0 ? -1 : 0);
+    // Note: Using Cartesian coordinates (Y increases upward)
+    const { dx, dy } = getDirectionOffset(player.dir);
     const attackX = player.x + dx;
     const attackY = player.y + dy;
     
