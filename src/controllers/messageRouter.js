@@ -194,6 +194,8 @@ export function createMessageRouter(env, logger, world) {
         
         // 8.5) Envia pacote 'game' com informações de premium e listas de aparência premium
         // Este pacote é esperado pelo cliente para habilitar funcionalidades premium
+        // Nota: As listas lh/lc/lb são hardcoded conforme especificação do cliente e podem
+        // diferir das constantes de validação do servidor (PREMIUM_* em appearance.js)
         world.sendTo(player, {
           type: 'game',
           lh: [5, 9, 10, 11, 12, 14, 15, 16, 17, 18, 19, 20, 22],  // Premium hair list
