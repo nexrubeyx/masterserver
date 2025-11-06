@@ -99,21 +99,34 @@ export class PlayerService {
    * - id: ID da sessão
    * - tpl: ID do template (mesmo que id)
    * - x, y: posição atual
-   * - dx: coordenada x de destino (igual a x)
-   * - dy: coordenada y de destino (igual a y)
+   * - dx: coordenada x de destino (próximo tile se movendo, senão igual a x)
+   * - dy: coordenada y de destino (próximo tile se movendo, senão igual a y)
    * - s: velocidade (ms/tile)
    * - d: direção (0=cima, 1=direita, 2=baixo, 3=esquerda)
    * - ch: channel/camada (0 = padrão)
    */
   makePlayerSnapshotPacket(player) {
+    // Calcula destino baseado na direção e se está movendo
+    // Direção: 0=cima, 1=direita, 2=baixo, 3=esquerda
+    let dx = player.x;
+    let dy = player.y;
+    
+    if (player.moving) {
+      // Se o jogador está se movendo, dx/dy devem apontar para o próximo tile
+      const dirX = (player.dir === 1 ? 1 : player.dir === 3 ? -1 : 0);
+      const dirY = (player.dir === 2 ? 1 : player.dir === 0 ? -1 : 0);
+      dx = player.x + dirX;
+      dy = player.y + dirY;
+    }
+    
     return {
       type: 'p',
       id: Number(player.sessionId),
       tpl: Number(player.sessionId),
       x: player.x,
       y: player.y,
-      dx: player.x,  // Delta X igual à posição x
-      dy: player.y,  // Delta Y igual à posição y
+      dx: dx,  // Destino X (próximo tile se movendo)
+      dy: dy,  // Destino Y (próximo tile se movendo)
       s: player.speed || 300,
       d: player.dir || 0,
       ch: 0  // Channel (não usado, sempre 0)
