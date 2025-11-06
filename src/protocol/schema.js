@@ -24,6 +24,8 @@
  * - clrobj: limpar objetos do tile
  * - sw: trocar slots do inventário
  * - u: usar item consumível do inventário
+ * - A: iniciar e manter ataque
+ * - a: soltar ataque
  */
 
 import Ajv from 'ajv';
@@ -283,6 +285,32 @@ export const schemaByType = {
     properties: {
       type: { const: 'u' },
       slot: { type: 'integer', minimum: 0, maximum: 99 }
+    },
+    additionalProperties: false
+  },
+
+  /**
+   * Mensagem 'A' - Attack hold
+   * Inicia e mantém o ataque
+   */
+  A: {
+    type: 'object',
+    required: ['type'],
+    properties: {
+      type: { const: 'A' }
+    },
+    additionalProperties: false
+  },
+
+  /**
+   * Mensagem 'a' - Attack release
+   * Solta o ataque
+   */
+  a: {
+    type: 'object',
+    required: ['type'],
+    properties: {
+      type: { const: 'a' }
     },
     additionalProperties: false
   }

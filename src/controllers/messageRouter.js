@@ -13,6 +13,8 @@
  * - P: ping/keepalive
  * - sw: troca de slots no inventário
  * - u: usar item consumível do inventário
+ * - A: iniciar e manter ataque
+ * - a: soltar ataque
  * 
  * Fluxo de processamento:
  * 1. WebSocket recebe mensagem bruta
@@ -701,6 +703,53 @@ export function createMessageRouter(env, logger, world) {
             'Player used item successfully'
           );
         }
+        
+        return;
+      }
+
+      // === ATTACK HOLD ===
+      // Jogador inicia e mantém o ataque
+      case 'A': {
+        const session = world.getSession(ws);
+        if (!session) return;  // Sem sessão = não autenticado, ignora
+        
+        const player = session.player;
+        
+        // Marca o jogador como atacando
+        player.attacking = true;
+        
+        // Cria e envia o pacote de efeito de ataque (swing effect)
+        const attackEffect = {
+          type: 'fx',
+          tpl: 'swing',
+          x: player.x,
+          y: player.y,
+          s: 'swish',
+          d: 2
+        };
+        
+        // Broadcast do efeito para todos no mapa em formato pkg
+        const pkgData = [JSON.stringify(attackEffect)];
+        const attackPacket = {
+          type: 'pkg',
+          data: JSON.stringify(pkgData)
+        };
+        
+        world.sendToAllInMap(player, attackPacket);
+        
+        return;
+      }
+
+      // === ATTACK RELEASE ===
+      // Jogador solta o ataque
+      case 'a': {
+        const session = world.getSession(ws);
+        if (!session) return;  // Sem sessão = não autenticado, ignora
+        
+        const player = session.player;
+        
+        // Marca o jogador como não atacando
+        player.attacking = false;
         
         return;
       }
