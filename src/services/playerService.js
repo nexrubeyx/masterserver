@@ -518,6 +518,13 @@ export class PlayerService {
           this.markViewportDirty(player);
           this.markSnapshotDirty(player);
           
+          // === CORREÇÃO IMEDIATA ===
+          // Envia snapshot corrigido imediatamente ao próprio player
+          // para garantir que o cliente veja a posição correta (dx=x, dy=y)
+          // e evitar bugs visuais de dessincronia
+          const correctionSnapshot = this.makePlayerSnapshotPacket(player);
+          this.world.sendTo(player, correctionSnapshot);
+          
           this.logger.debug(
             { sessionId: player.sessionId, lastValid: {x: lastValidX, y: lastValidY}, attempted: {x: nx, y: ny} },
             'Player returned to last valid position (map border)'
@@ -547,6 +554,13 @@ export class PlayerService {
               this.markViewportDirty(player);
               this.markSnapshotDirty(player);
               
+              // === CORREÇÃO IMEDIATA ===
+              // Envia snapshot corrigido imediatamente ao próprio player
+              // para garantir que o cliente veja a posição correta (dx=x, dy=y)
+              // e evitar bugs visuais de dessincronia
+              const correctionSnapshot = this.makePlayerSnapshotPacket(player);
+              this.world.sendTo(player, correctionSnapshot);
+              
               this.logger.debug(
                 { sessionId: player.sessionId, lastValid: {x: lastValidX, y: lastValidY}, attempted: {x: nx, y: ny}, tile: tileAtTarget },
                 'Player returned to last valid position (deep water)'
@@ -570,6 +584,13 @@ export class PlayerService {
             // Marca viewport e snapshot como sujos para enviar atualização
             this.markViewportDirty(player);
             this.markSnapshotDirty(player);
+            
+            // === CORREÇÃO IMEDIATA ===
+            // Envia snapshot corrigido imediatamente ao próprio player
+            // para garantir que o cliente veja a posição correta (dx=x, dy=y)
+            // e evitar bugs visuais de dessincronia
+            const correctionSnapshot = this.makePlayerSnapshotPacket(player);
+            this.world.sendTo(player, correctionSnapshot);
             
             this.logger.debug(
               { sessionId: player.sessionId, lastValid: {x: lastValidX, y: lastValidY}, attempted: {x: nx, y: ny}, tile: tileAtTarget },
