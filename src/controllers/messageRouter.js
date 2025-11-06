@@ -41,10 +41,13 @@ import { DEFAULT_ATTACK_SPEED } from '../constants/tiles.js';
  * @returns {Object} { dx, dy } - Coordinate offsets
  */
 function getDirectionOffset(direction) {
+  // Note: Monster Legend client uses inverted Y coordinates for visual effects.
+  // While player movement uses Y- for UP, effects require Y+ for UP.
+  // This is likely due to effects using a different rendering layer with Cartesian coordinates.
   const offsets = [
-    { dx: 0, dy: -1 },  // 0: UP
+    { dx: 0, dy: 1 },   // 0: UP (Y+ for effects)
     { dx: 1, dy: 0 },   // 1: RIGHT
-    { dx: 0, dy: 1 },   // 2: DOWN
+    { dx: 0, dy: -1 },  // 2: DOWN (Y- for effects)
     { dx: -1, dy: 0 }   // 3: LEFT
   ];
   return offsets[direction] || { dx: 0, dy: 0 };
@@ -754,8 +757,11 @@ export function createMessageRouter(env, logger, world) {
         
         // Helper function to send attack effect
         const sendAttackEffect = () => {
+          // Ensure player.dir is valid (0-3), default to 0 if not
+          const direction = Number.isInteger(player.dir) && player.dir >= 0 && player.dir <= 3 ? player.dir : 0;
+          
           // Calculate position in front of player based on direction
-          const { dx, dy } = getDirectionOffset(player.dir);
+          const { dx, dy } = getDirectionOffset(direction);
           const attackX = player.x + dx;
           const attackY = player.y + dy;
           
