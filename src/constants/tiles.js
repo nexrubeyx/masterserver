@@ -19,7 +19,7 @@
  * Default player movement speed in milliseconds per tile
  * Used as fallback when player speed is not set or invalid
  */
-export const DEFAULT_PLAYER_SPEED = 750;
+export const DEFAULT_PLAYER_SPEED = 350;
 
 // === TILE ID PARSING ===
 /**
