@@ -426,12 +426,16 @@ export class PlayerService {
    * receba imediatamente as coordenadas corretas (dx=x, dy=y) e evite
    * bugs visuais de dessincronia.
    * 
+   * Envia para TODOS os jogadores no mapa no formato pl (pkg > pl > p)
+   * para garantir consistência.
+   * 
    * @param {Object} player - Jogador que teve movimento bloqueado
    * @private
    */
   _sendImmediateCorrection(player) {
-    const correctionSnapshot = this.makePlayerSnapshotPacket(player);
-    this.world.sendTo(player, correctionSnapshot);
+    // Envia atualização de posição para todos usando formato pl (pkg > pl > p)
+    // Isso garante que todos recebam as posições no formato consistente
+    this.broadcastPlayerPositions(player.mapId, null);
   }
 
   /**
@@ -707,18 +711,10 @@ export class PlayerService {
     player.moving = false;  // Marca como parado
     player._accumMs = 0;    // Limpa acumulador de tempo
     
-    // Cria snapshot uma vez para reusar
-    const snapshot = this.makePlayerSnapshotPacket(player);
-    
-    // Envia snapshot para outros jogadores
-    // (importante para sincronizar parada)
-    this.world.sendToOthersInMap(player, snapshot);
-    
-    // Se sendToSelf=true, também envia para o próprio jogador
-    // Isso garante que o cliente tenha dx=x, dy=y (coordenadas corretas)
-    if (sendToSelf) {
-      this.world.sendTo(player, snapshot);
-    }
+    // Envia atualização de posição usando formato pl (pkg > pl > p)
+    // Isso garante que todos recebam as posições no formato consistente
+    // incluindo a posição do próprio jogador
+    this.broadcastPlayerPositions(player.mapId, sendToSelf ? null : player);
   }
 
   /**
@@ -735,8 +731,9 @@ export class PlayerService {
     // Atualiza direção se válida
     if (Number.isInteger(dir)) player.dir = dir;
     
-    // Notifica outros jogadores da mudança de direção
-    this.world.sendToOthersInMap(player, this.makePlayerSnapshotPacket(player));
+    // Envia atualização de posição usando formato pl (pkg > pl > p)
+    // Notifica outros jogadores da mudança de direção (não precisa enviar para si mesmo)
+    this.broadcastPlayerPositions(player.mapId, player);
   }
 
   /**
@@ -900,5 +897,51 @@ export class PlayerService {
     
     // Verifica se está dentro do retângulo de visão
     return dx <= radiusX && dy <= radiusY;
+  }
+
+  /**
+   * Envia posições de todos os jogadores visíveis para jogadores em um mapa
+   * 
+   * Usa o formato pl (player list) que é automaticamente encapsulado em pkg.
+   * Garante que todos os jogadores recebam as posições no formato consistente
+   * pkg > pl > p, incluindo suas próprias posições.
+   * 
+   * @param {string} mapId - ID do mapa
+   * @param {Object|null} excludePlayer - Jogador a excluir dos receptores (null = enviar para todos)
+   * 
+   * Quando excludePlayer é null, envia para TODOS os jogadores incluindo suas próprias posições.
+   * Quando excludePlayer é especificado, envia para todos EXCETO esse jogador.
+   */
+  broadcastPlayerPositions(mapId, excludePlayer = null) {
+    if (!mapId) return;
+    
+    // Get all players in the map
+    const allPlayersInMap = this.world.getPlayersInMap(mapId);
+    if (allPlayersInMap.length === 0) return;
+    
+    // For each receiver in the map
+    for (const receiver of allPlayersInMap) {
+      // Skip if this is the excluded player
+      if (excludePlayer && receiver === excludePlayer) continue;
+      
+      // Get all visible players for this receiver (includes receiver themselves)
+      const visiblePlayers = allPlayersInMap.filter(player => {
+        return this.isPlayerInViewRange(receiver, player);
+      });
+      
+      // If there are visible players, send "pl" packet with ALL of them
+      if (visiblePlayers.length > 0) {
+        const plData = this.makePlayerListData(visiblePlayers);
+        
+        const plPacket = {
+          type: 'pl',
+          data: plData
+        };
+        
+        // Send pl packet directly - sendRaw will automatically wrap it in pkg
+        // Format: pkg > pl > p (as expected by the client)
+        this.world.sendTo(receiver, plPacket);
+      }
+    }
   }
 }
