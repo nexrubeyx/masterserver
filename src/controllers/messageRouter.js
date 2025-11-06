@@ -408,8 +408,9 @@ export function createMessageRouter(env, logger, world) {
           player.appearance.sprite = costumeId;
           
           // IMPORTANTE: Para movimento - Para qualquer movimento em andamento para prevenir bugs
+          // Envia correção ao próprio jogador para garantir dx=x, dy=y
           if (player.moving) {
-            world.playerService.stopMoving(player);
+            world.playerService.stopMoving(player, true); // sendToSelf=true for forced stop
           }
           
           // Salva no banco
@@ -456,8 +457,9 @@ export function createMessageRouter(env, logger, world) {
           player.appearance.sprite = costumeId;
           
           // IMPORTANTE: Para movimento - Para qualquer movimento em andamento para prevenir bugs
+          // Envia correção ao próprio jogador para garantir dx=x, dy=y
           if (player.moving) {
-            world.playerService.stopMoving(player);
+            world.playerService.stopMoving(player, true); // sendToSelf=true for forced stop
           }
           
           // Atualiza template para TODOS os jogadores no mapa
@@ -535,8 +537,9 @@ export function createMessageRouter(env, logger, world) {
           
           if (changed) {
             // IMPORTANTE: Para movimento - Para qualquer movimento em andamento para prevenir bugs
+            // Envia correção ao próprio jogador para garantir dx=x, dy=y
             if (player.moving) {
-              world.playerService.stopMoving(player);
+              world.playerService.stopMoving(player, true); // sendToSelf=true for forced stop
             }
             
             // Salva a aparência no banco de dados
