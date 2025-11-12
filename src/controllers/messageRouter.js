@@ -286,7 +286,8 @@ export function createMessageRouter(env, logger, world) {
           world.playerService.startMoving(session.player, packet.d);
         } else {
           // Se não tem direção, para o movimento
-          world.playerService.stopMoving(session.player);
+          // sendToSelf=true para garantir que o cliente receba dx=x, dy=y (posição correta)
+          world.playerService.stopMoving(session.player, true);
         }
         return;
       }
