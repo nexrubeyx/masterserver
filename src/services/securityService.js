@@ -73,14 +73,18 @@ export class SecurityService {
   initializePlayer(player) {
     if (!player.sessionId) return;
 
+    // Define lastMoveTime no passado para permitir movimento imediato
+    // Isso evita bloquear o primeiro movimento do jogador
+    const now = Date.now();
+    
     this.positionHistory.set(player.sessionId, {
       positions: [{
         x: player.x,
         y: player.y,
-        timestamp: Date.now()
+        timestamp: now
       }],
       violations: 0,
-      lastMoveTime: Date.now()
+      lastMoveTime: now - this.minMovementInterval // Permite movimento imediato
     });
 
     this.logger.debug(
@@ -218,12 +222,12 @@ export class SecurityService {
    * estado do servidor (autoridade do servidor).
    * 
    * Estratégia de validação:
-   * - Pequenas diferenças (≤ tolerância): aceitas silenciosamente (lag de rede)
-   * - Diferenças moderadas (> tolerância, ≤ limite severo): logadas mas aceitas
-   * - Diferenças severas (> limite severo): logadas como violação e rejeitadas
+   * - Player parado: tolerância 0 (deve estar exatamente onde o servidor diz)
+   * - Player em movimento: tolerância configurada (compensar lag e predição)
+   * - Diferenças severas: sempre rejeitadas e corrigidas
    * 
-   * Isso evita teleportação do personagem por dessincronia de rede normal,
-   * mas ainda previne tentativas reais de cheating.
+   * Isso garante que o player mostre exatamente onde está quando parado,
+   * mas permite predição do cliente durante movimento sem causar teleportação.
    * 
    * @param {Object} player - Jogador
    * @param {number} clientX - Posição X enviada pelo cliente
@@ -236,12 +240,15 @@ export class SecurityService {
     }
 
     // Usa tolerância configurada no construtor
-    const tolerance = this.coordTolerance;
+    // Para players parados, tolerância deve ser 0 (exatamente onde está)
+    // Para players em movimento, permite pequena diferença (predição do cliente)
+    const baseTolerance = this.coordTolerance;
+    const tolerance = player.moving ? Math.max(baseTolerance, 1) : 0;
     
     // Limite para considerar dessincronia severa (possível cheating)
     // Apenas dessincronias severas forçam correção do cliente
     const severeDesyncThreshold = Math.max(
-      tolerance * this.severeDesyncMultiplier,
+      baseTolerance * this.severeDesyncMultiplier,
       this.minSevereDesyncThreshold
     );
 
@@ -255,7 +262,7 @@ export class SecurityService {
       return { valid: true, needsCorrection: false };
     }
 
-    // Se dentro da tolerância, aceita (lag normal de rede)
+    // Se dentro da tolerância, aceita (lag normal de rede ou predição)
     if (distance <= tolerance) {
       return { valid: true, needsCorrection: false };
     }
@@ -297,7 +304,8 @@ export class SecurityService {
           client: { x: clientX, y: clientY },
           server: { x: serverX, y: serverY },
           distance,
-          tolerance
+          tolerance,
+          moving: player.moving
         },
         'Dessincronia moderada detectada - aceitando para evitar teleportação'
       );
