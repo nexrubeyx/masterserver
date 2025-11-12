@@ -177,9 +177,15 @@ export class SecurityService {
 
     // === VALIDAÇÃO 4: Intervalo de Tempo ===
     // Previne movimentos mais rápidos que o permitido pela velocidade
+    // Esta validação só se aplica quando o jogador INICIA um novo movimento
+    // Durante movimento contínuo, o rate limiting é controlado pelo speed/accumulator
     const timeSinceLastMove = now - history.lastMoveTime;
     
-    if (timeSinceLastMove < this.minMovementInterval) {
+    // Se o jogador já está em movimento contínuo, não aplica rate limit
+    // O accumulator em playerService já controla a velocidade
+    const isAlreadyMoving = player.moving && player._accumMs !== undefined;
+    
+    if (!isAlreadyMoving && timeSinceLastMove < this.minMovementInterval) {
       this._recordViolation(player, VIOLATION_TYPES.TOO_FAST, {
         interval: timeSinceLastMove,
         minInterval: this.minMovementInterval
@@ -223,8 +229,10 @@ export class SecurityService {
    * 
    * Estratégia de validação:
    * - Player parado: tolerância 0 (deve estar exatamente onde o servidor diz)
-   * - Player em movimento: tolerância configurada (compensar lag e predição)
-   * - Diferenças severas: sempre rejeitadas e corrigidas
+   *   Qualquer diferença > 0 força correção imediata
+   * - Player em movimento: tolerância de 1 tile (compensar lag e predição)
+   *   Diferenças moderadas (≤ 2) são aceitas
+   *   Diferenças severas (> 3) são rejeitadas
    * 
    * Isso garante que o player mostre exatamente onde está quando parado,
    * mas permite predição do cliente durante movimento sem causar teleportação.
@@ -239,22 +247,8 @@ export class SecurityService {
       return { valid: false, reason: 'Player inválido', needsCorrection: false };
     }
 
-    // Usa tolerância configurada no construtor
-    // Para players parados, tolerância deve ser 0 (exatamente onde está)
-    // Para players em movimento, permite pequena diferença (predição do cliente)
-    const baseTolerance = this.coordTolerance;
-    const tolerance = player.moving ? Math.max(baseTolerance, 1) : 0;
-    
-    // Limite para considerar dessincronia severa (possível cheating)
-    // Apenas dessincronias severas forçam correção do cliente
-    const severeDesyncThreshold = Math.max(
-      baseTolerance * this.severeDesyncMultiplier,
-      this.minSevereDesyncThreshold
-    );
-
     const serverX = player.x;
     const serverY = player.y;
-
     const distance = this._calculateDistance(serverX, serverY, clientX, clientY);
 
     // Se coordenadas são exatas, validação passou
@@ -262,8 +256,38 @@ export class SecurityService {
       return { valid: true, needsCorrection: false };
     }
 
-    // Se dentro da tolerância, aceita (lag normal de rede ou predição)
-    if (distance <= tolerance) {
+    // === VALIDAÇÃO PARA PLAYER PARADO ===
+    // Player parado deve estar EXATAMENTE onde o servidor diz (tolerância 0)
+    // Qualquer diferença indica dessincronia e requer correção imediata
+    if (!player.moving) {
+      this.logger.debug(
+        {
+          sessionId: player.sessionId,
+          client: { x: clientX, y: clientY },
+          server: { x: serverX, y: serverY },
+          distance
+        },
+        'Player parado com coordenadas incorretas - forçando correção'
+      );
+
+      return {
+        valid: false,
+        reason: `Player parado deve estar em (${serverX}, ${serverY}), não em (${clientX}, ${clientY})`,
+        needsCorrection: true
+      };
+    }
+
+    // === VALIDAÇÃO PARA PLAYER EM MOVIMENTO ===
+    // Player em movimento pode ter pequena diferença devido a predição do cliente
+    
+    // Tolerância para movimento normal (predição do cliente)
+    const movementTolerance = 2;
+    
+    // Limite para dessincronia severa (possível cheating)
+    const severeDesyncThreshold = this.minSevereDesyncThreshold; // 3 tiles
+
+    // Se dentro da tolerância de movimento, aceita (predição normal)
+    if (distance <= movementTolerance) {
       return { valid: true, needsCorrection: false };
     }
 
@@ -273,7 +297,7 @@ export class SecurityService {
         client: { x: clientX, y: clientY },
         server: { x: serverX, y: serverY },
         distance,
-        tolerance,
+        tolerance: movementTolerance,
         severeThreshold: severeDesyncThreshold
       });
 
@@ -295,24 +319,20 @@ export class SecurityService {
       };
     }
 
-    // Diferença moderada: loga para debug mas aceita (evita teleportação)
-    // Apenas registra violação se exceder limite de log
-    if (distance > this.significantViolationThreshold) {
-      this.logger.debug(
-        {
-          sessionId: player.sessionId,
-          client: { x: clientX, y: clientY },
-          server: { x: serverX, y: serverY },
-          distance,
-          tolerance,
-          moving: player.moving
-        },
-        'Dessincronia moderada detectada - aceitando para evitar teleportação'
-      );
-    }
+    // Diferença moderada (3 tiles): loga mas aceita para evitar teleportação
+    // Isso cobre o caso intermediário onde há lag mas não é cheating
+    this.logger.debug(
+      {
+        sessionId: player.sessionId,
+        client: { x: clientX, y: clientY },
+        server: { x: serverX, y: serverY },
+        distance,
+        tolerance: movementTolerance
+      },
+      'Dessincronia moderada durante movimento - aceitando'
+    );
 
     // Aceita comando apesar da dessincronia moderada
-    // Isso evita que o jogador seja teleportado devido a lag de rede
     return { valid: true, needsCorrection: false };
   }
 
