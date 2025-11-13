@@ -647,10 +647,9 @@ export class PlayerService {
             this.markViewportDirty(player);
             moved = true;
             
-            // === ENVIO IMEDIATO DE POSIÇÃO (COMPORTAMENTO DO SERVIDOR ORIGINAL) ===
-            // O servidor original envia uma atualização de posição para CADA tile atravessado
-            // Isso garante que o movimento seja suave e sincronizado com o cliente
-            this.broadcastPlayerPositions(player.mapId, null);
+            // Marca snapshot como sujo para enviar no próximo flush (batch)
+            // Isso reduz o número de pacotes enviados enquanto mantém sincronização
+            this.markSnapshotDirty(player);
           }
         }
       }
@@ -660,8 +659,8 @@ export class PlayerService {
     } // Fim do if (processamento de 1 tile por tick)
 
     // === PASSO 3: Flush viewport se houve movimento ===
-    // Nota: A posição já foi enviada imediatamente no passo de movimento
-    // Aqui apenas enviamos o viewport se necessário
+    // O viewport é enviado quando o jogador se move significativamente
+    // A posição será enviada em batch no flushPendingSnapshots() ao final do tick
     if (moved) {
       // Envia novo viewport se origem mudou
       this.flushViewportIfDirty(player, now);
