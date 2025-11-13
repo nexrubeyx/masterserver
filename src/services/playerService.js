@@ -92,6 +92,9 @@ export class PlayerService {
    * É enviado periodicamente para manter outros jogadores
    * sincronizados com movimentos e mudanças de direção.
    * 
+   * IMPORTANTE: dx/dy representam a ORIGEM do movimento (onde começou),
+   * NÃO o destino. Isso corresponde ao comportamento do servidor original.
+   * 
    * @param {Object} player - Jogador
    * @returns {Object} Pacote 'p' com estado atual
    * 
@@ -99,25 +102,17 @@ export class PlayerService {
    * - id: ID da sessão
    * - tpl: ID do template (mesmo que id)
    * - x, y: posição atual
-   * - dx: coordenada x de destino (próximo tile se movendo, senão igual a x)
-   * - dy: coordenada y de destino (próximo tile se movendo, senão igual a y)
+   * - dx, dy: posição de ORIGEM do movimento (onde o movimento começou)
    * - s: velocidade (ms/tile)
    * - d: direção (0=cima, 1=direita, 2=baixo, 3=esquerda)
    * - ch: channel/camada (0 = padrão)
    */
   makePlayerSnapshotPacket(player) {
-    // Calcula destino baseado na direção e se está movendo
-    // Direção: 0=cima, 1=direita, 2=baixo, 3=esquerda
-    let dx = player.x;
-    let dy = player.y;
-    
-    if (player.moving) {
-      // Se o jogador está se movendo, dx/dy devem apontar para o próximo tile
-      const dirX = (player.dir === 1 ? 1 : player.dir === 3 ? -1 : 0);
-      const dirY = (player.dir === 2 ? 1 : player.dir === 0 ? -1 : 0);
-      dx = player.x + dirX;
-      dy = player.y + dirY;
-    }
+    // dx/dy são a ORIGEM do movimento (onde o jogador estava quando começou a se mover)
+    // Se não está movendo, dx/dy = posição atual
+    // Se está movendo, dx/dy = posição onde o movimento começou (_moveOriginX/Y)
+    let dx = player._moveOriginX !== undefined ? player._moveOriginX : player.x;
+    let dy = player._moveOriginY !== undefined ? player._moveOriginY : player.y;
     
     return {
       type: 'p',
@@ -125,8 +120,8 @@ export class PlayerService {
       tpl: Number(player.sessionId),
       x: player.x,
       y: player.y,
-      dx: dx,  // Destino X (próximo tile se movendo)
-      dy: dy,  // Destino Y (próximo tile se movendo)
+      dx: dx,  // Origem X (onde o movimento começou)
+      dy: dy,  // Origem Y (onde o movimento começou)
       s: player.speed || 300,
       d: player.dir || 0,
       ch: 0  // Channel (não usado, sempre 0)
@@ -651,6 +646,11 @@ export class PlayerService {
             // Marca viewport como sujo para enviar viewport atualizado
             this.markViewportDirty(player);
             moved = true;
+            
+            // === ENVIO IMEDIATO DE POSIÇÃO (COMPORTAMENTO DO SERVIDOR ORIGINAL) ===
+            // O servidor original envia uma atualização de posição para CADA tile atravessado
+            // Isso garante que o movimento seja suave e sincronizado com o cliente
+            this.broadcastPlayerPositions(player.mapId, null);
           }
         }
       }
@@ -659,15 +659,12 @@ export class PlayerService {
       // Se precisasse, chamaria checkExitAndTransition aqui
     } // Fim do if (processamento de 1 tile por tick)
 
-    // === PASSO 3: Flush atualizações se houve movimento ===
+    // === PASSO 3: Flush viewport se houve movimento ===
+    // Nota: A posição já foi enviada imediatamente no passo de movimento
+    // Aqui apenas enviamos o viewport se necessário
     if (moved) {
       // Envia novo viewport se origem mudou
       this.flushViewportIfDirty(player, now);
-      
-      // Marca e envia snapshot de posição para outros jogadores IMEDIATAMENTE
-      // Isso garante que todos os jogadores vejam a posição atualizada sem delay
-      this.markSnapshotDirty(player);
-      this.flushSnapshotIfDirty(player, now, true); // immediate = true para ignorar rate limit
     }
   }
 
@@ -683,13 +680,28 @@ export class PlayerService {
    * - Cliente enviar 'h' sem direção (para)
    * - Jogador atingir borda do mapa
    * - Jogador desconectar
+   * 
+   * IMPORTANTE: Salva a posição de origem (dx, dy) quando o movimento começa.
+   * Isso corresponde ao comportamento do servidor original onde dx/dy
+   * permanecem constantes durante toda a sessão de movimento.
    */
   startMoving(player, dir) {
     // Valida direção (deve ser 0-3)
     if (!Number.isInteger(dir) || dir < 0 || dir > 3) return;
     
+    // Se está começando um novo movimento (não estava movendo antes),
+    // salva a posição atual como origem do movimento
+    if (!player.moving) {
+      player._moveOriginX = player.x;
+      player._moveOriginY = player.y;
+    }
+    
     player.dir = dir;      // Atualiza direção
     player.moving = true;  // Marca como movendo
+    
+    // Envia atualização imediata de posição/direção para todos os jogadores
+    // Isso garante que a mudança de direção seja vista imediatamente
+    this.broadcastPlayerPositions(player.mapId, null);
   }
 
   /**
@@ -706,10 +718,16 @@ export class PlayerService {
    * Limpa acumulador e notifica outros jogadores da parada.
    * Se sendToSelf=true, também envia snapshot corrigido ao próprio jogador
    * para garantir sincronização (usado em paradas forçadas, não voluntárias).
+   * 
+   * IMPORTANTE: Limpa a origem do movimento (dx, dy) quando o jogador para.
    */
   stopMoving(player, sendToSelf = false) {
     player.moving = false;  // Marca como parado
     player._accumMs = 0;    // Limpa acumulador de tempo
+    
+    // Limpa a origem do movimento - quando parado, dx/dy = x/y
+    player._moveOriginX = undefined;
+    player._moveOriginY = undefined;
     
     // Envia atualização de posição usando formato pl (pkg > pl > p)
     // Isso garante que todos recebam as posições no formato consistente
