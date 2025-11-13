@@ -721,6 +721,9 @@ export class PlayerService {
    * IMPORTANTE: Limpa a origem do movimento (dx, dy) quando o jogador para.
    */
   stopMoving(player, sendToSelf = false) {
+    // Verifica se o jogador estava se movendo antes de parar
+    const wasMoving = player.moving;
+    
     player.moving = false;  // Marca como parado
     player._accumMs = 0;    // Limpa acumulador de tempo
     
@@ -731,10 +734,22 @@ export class PlayerService {
     // Registra parada no serviço de segurança para iniciar período de graça
     this.world.securityService.recordPlayerStop(player);
     
-    // Envia atualização de posição usando formato pl (pkg > pl > p)
-    // Isso garante que todos recebam as posições no formato consistente
-    // incluindo a posição do próprio jogador
-    this.broadcastPlayerPositions(player.mapId, sendToSelf ? null : player);
+    // Só envia broadcast para outros jogadores se o jogador estava realmente se movendo
+    // Caso contrário, só envia para o próprio jogador se sendToSelf=true (correção de posição)
+    if (wasMoving) {
+      // Jogador estava se movendo - envia atualização para todos
+      this.broadcastPlayerPositions(player.mapId, sendToSelf ? null : player);
+    } else if (sendToSelf) {
+      // Jogador já estava parado, mas precisa de correção de posição
+      // Envia apenas para o próprio jogador, não para outros
+      const plData = this.makePlayerListData([player]);
+      const plPacket = {
+        type: 'pl',
+        data: plData
+      };
+      this.world.sendTo(player, plPacket);
+    }
+    // Se não estava movendo E sendToSelf=false, não envia nada (evita pacotes desnecessários)
   }
 
   /**
