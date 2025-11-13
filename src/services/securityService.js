@@ -94,7 +94,8 @@ export class SecurityService {
       }],
       violations: 0,
       lastMoveTime: now - this.minMovementInterval, // Permite movimento imediato
-      lastStopTime: 0 // Timestamp da última vez que parou
+      lastStopTime: 0, // Timestamp da última vez que parou
+      lastCorrectionTime: 0 // Timestamp da última correção de coordenadas
     });
 
     this.logger.debug(
@@ -392,6 +393,44 @@ export class SecurityService {
       { sessionId: player.sessionId, x: player.x, y: player.y },
       'Registrando parada do jogador - iniciando período de graça'
     );
+  }
+
+  /**
+   * Verifica se deve enviar correção de coordenadas
+   * 
+   * Rate-limita correções para evitar spam quando cliente está
+   * enviando comandos rapidamente com coordenadas desatualizadas.
+   * 
+   * Permite no máximo 1 correção a cada 100ms por jogador.
+   * 
+   * @param {Object} player - Jogador
+   * @returns {boolean} true se deve enviar correção, false caso contrário
+   */
+  shouldSendCorrection(player) {
+    if (!player.sessionId) return true;
+    
+    const history = this.positionHistory.get(player.sessionId);
+    if (!history) return true;
+    
+    const now = Date.now();
+    const timeSinceLastCorrection = now - history.lastCorrectionTime;
+    const minCorrectionInterval = 100; // 100ms entre correções
+    
+    if (timeSinceLastCorrection < minCorrectionInterval) {
+      this.logger.debug(
+        { 
+          sessionId: player.sessionId,
+          timeSinceLastCorrection,
+          minInterval: minCorrectionInterval
+        },
+        'Correção suprimida - rate limit'
+      );
+      return false;
+    }
+    
+    // Atualiza timestamp da última correção
+    history.lastCorrectionTime = now;
+    return true;
   }
 
   /**
