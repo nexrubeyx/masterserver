@@ -240,14 +240,17 @@ export function createMessageRouter(env, logger, world) {
         );
 
         if (!coordValidation.valid) {
-          // Coordenadas inválidas - resincroniza cliente com servidor IMEDIATAMENTE
-          world.logger.debug(
-            { sessionId: session.player.sessionId, reason: coordValidation.reason },
-            'Cliente com coordenadas dessincronizadas (comando m) - corrigindo'
-          );
-          
-          // Envia correção usando formato pl (pkg > pl > p) para todos
-          world.playerService.broadcastPlayerPositions(session.player.mapId, null);
+          // Coordenadas inválidas - resincroniza cliente com servidor
+          // Rate-limita correções para evitar spam
+          if (world.securityService.shouldSendCorrection(session.player)) {
+            world.logger.debug(
+              { sessionId: session.player.sessionId, reason: coordValidation.reason },
+              'Cliente com coordenadas dessincronizadas (comando m) - corrigindo'
+            );
+            
+            // Envia correção usando formato pl (pkg > pl > p) para todos
+            world.playerService.broadcastPlayerPositions(session.player.mapId, null);
+          }
           return;
         }
 
@@ -270,14 +273,17 @@ export function createMessageRouter(env, logger, world) {
         );
 
         if (!coordValidation.valid) {
-          // Coordenadas inválidas - resincroniza cliente com servidor IMEDIATAMENTE
-          world.logger.debug(
-            { sessionId: session.player.sessionId, reason: coordValidation.reason },
-            'Cliente com coordenadas dessincronizadas (comando h) - corrigindo'
-          );
-          
-          // Envia correção usando formato pl (pkg > pl > p) para todos
-          world.playerService.broadcastPlayerPositions(session.player.mapId, null);
+          // Coordenadas inválidas - resincroniza cliente com servidor
+          // Rate-limita correções para evitar spam
+          if (world.securityService.shouldSendCorrection(session.player)) {
+            world.logger.debug(
+              { sessionId: session.player.sessionId, reason: coordValidation.reason },
+              'Cliente com coordenadas dessincronizadas (comando h) - corrigindo'
+            );
+            
+            // Envia correção usando formato pl (pkg > pl > p) para todos
+            world.playerService.broadcastPlayerPositions(session.player.mapId, null);
+          }
           return;
         }
 

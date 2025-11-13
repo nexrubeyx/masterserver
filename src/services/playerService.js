@@ -729,6 +729,9 @@ export class PlayerService {
     player._moveOriginX = undefined;
     player._moveOriginY = undefined;
     
+    // Registra parada no serviço de segurança para iniciar período de graça
+    this.world.securityService.recordPlayerStop(player);
+    
     // Envia atualização de posição usando formato pl (pkg > pl > p)
     // Isso garante que todos recebam as posições no formato consistente
     // incluindo a posição do próprio jogador
