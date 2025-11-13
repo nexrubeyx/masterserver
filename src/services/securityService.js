@@ -63,6 +63,15 @@ export class SecurityService {
     
     // Limite mínimo absoluto para dessincronia severa (tiles)
     this.minSevereDesyncThreshold = Number(env.SECURITY_MIN_SEVERE_DESYNC_THRESHOLD || 10);
+    
+    // Período de tolerância após parar (ms)
+    // Durante este período, permite pequena diferença de coordenadas mesmo quando parado
+    // Isso compensa lag de rede e predição do cliente
+    this.stopGracePeriodMs = Number(env.SECURITY_STOP_GRACE_PERIOD_MS || 200);
+    
+    // Tolerância de coordenadas durante período de graça (tiles)
+    // Permite pequena diferença nas primeiras mensagens após parar
+    this.stopGraceTolerance = Number(env.SECURITY_STOP_GRACE_TOLERANCE || 2);
   }
 
   /**
@@ -84,7 +93,8 @@ export class SecurityService {
         timestamp: now
       }],
       violations: 0,
-      lastMoveTime: now - this.minMovementInterval // Permite movimento imediato
+      lastMoveTime: now - this.minMovementInterval, // Permite movimento imediato
+      lastStopTime: 0 // Timestamp da última vez que parou
     });
 
     this.logger.debug(
@@ -228,14 +238,16 @@ export class SecurityService {
    * estado do servidor (autoridade do servidor).
    * 
    * Estratégia de validação:
-   * - Player parado: tolerância 0 (deve estar exatamente onde o servidor diz)
-   *   Qualquer diferença > 0 força correção imediata
-   * - Player em movimento: tolerância de 1 tile (compensar lag e predição)
+   * - Player parado (recentemente): tolerância durante período de graça (compensar lag)
+   *   Durante os primeiros ~200ms após parar, permite até 2 tiles de diferença
+   * - Player parado (estável): tolerância 0 (deve estar exatamente onde o servidor diz)
+   *   Após período de graça, qualquer diferença > 0 força correção
+   * - Player em movimento: tolerância de 2 tiles (compensar lag e predição)
    *   Diferenças moderadas (≤ 2) são aceitas
    *   Diferenças severas (> 3) são rejeitadas
    * 
-   * Isso garante que o player mostre exatamente onde está quando parado,
-   * mas permite predição do cliente durante movimento sem causar teleportação.
+   * O período de graça evita loops de correção quando o cliente ainda não
+   * recebeu/processou a confirmação de parada do servidor.
    * 
    * @param {Object} player - Jogador
    * @param {number} clientX - Posição X enviada pelo cliente
@@ -257,15 +269,39 @@ export class SecurityService {
     }
 
     // === VALIDAÇÃO PARA PLAYER PARADO ===
-    // Player parado deve estar EXATAMENTE onde o servidor diz (tolerância 0)
-    // Qualquer diferença indica dessincronia e requer correção imediata
     if (!player.moving) {
+      const history = this.positionHistory.get(player.sessionId);
+      const now = Date.now();
+      
+      // Verifica se está dentro do período de graça após parar
+      const timeSinceStop = history ? (now - history.lastStopTime) : Infinity;
+      const inGracePeriod = timeSinceStop < this.stopGracePeriodMs;
+      
+      // Durante período de graça, permite tolerância maior
+      if (inGracePeriod && distance <= this.stopGraceTolerance) {
+        this.logger.debug(
+          {
+            sessionId: player.sessionId,
+            client: { x: clientX, y: clientY },
+            server: { x: serverX, y: serverY },
+            distance,
+            timeSinceStop,
+            gracePeriod: this.stopGracePeriodMs
+          },
+          'Player parado em período de graça - aceitando pequena diferença'
+        );
+        return { valid: true, needsCorrection: false };
+      }
+      
+      // Fora do período de graça ou diferença muito grande - força correção
       this.logger.debug(
         {
           sessionId: player.sessionId,
           client: { x: clientX, y: clientY },
           server: { x: serverX, y: serverY },
-          distance
+          distance,
+          inGracePeriod,
+          timeSinceStop
         },
         'Player parado com coordenadas incorretas - forçando correção'
       );
@@ -334,6 +370,28 @@ export class SecurityService {
 
     // Aceita comando apesar da dessincronia moderada
     return { valid: true, needsCorrection: false };
+  }
+
+  /**
+   * Registra que o jogador parou de se mover
+   * 
+   * Deve ser chamado pelo playerService.stopMoving() para iniciar
+   * o período de graça de coordenadas.
+   * 
+   * @param {Object} player - Jogador que parou
+   */
+  recordPlayerStop(player) {
+    if (!player.sessionId) return;
+    
+    const history = this.positionHistory.get(player.sessionId);
+    if (!history) return;
+    
+    history.lastStopTime = Date.now();
+    
+    this.logger.debug(
+      { sessionId: player.sessionId, x: player.x, y: player.y },
+      'Registrando parada do jogador - iniciando período de graça'
+    );
   }
 
   /**
