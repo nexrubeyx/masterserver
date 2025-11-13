@@ -818,6 +818,9 @@ export class PlayerService {
    * IMPORTANT: When at least one player in a map has a pending snapshot,
    * ALL visible players in each receiver's chunk are included in the "pl" packet.
    * 
+   * OPTIMIZATION: Creates packet once per unique visible set instead of per receiver.
+   * This reduces packet creation overhead when multiple players see the same set of players.
+   * 
    * NETWORK TRAFFIC NOTE:
    * This implementation sends ALL players in viewport, even those that haven't moved.
    * This is the DESIRED behavior per requirement specification:
@@ -868,6 +871,11 @@ export class PlayerService {
       // Get all players in the map
       const allPlayersInMap = this.world.getPlayersInMap(mapId);
       
+      // Cache packets by visible player set to avoid recreating identical packets
+      // Key: sorted comma-separated list of visible player session IDs
+      // Value: the pl packet to send
+      const packetCache = new Map();
+      
       // For each receiver that needs to receive updates
       for (const receiver of allPlayersInMap) {
         // CHANGE: Send ALL players within chunk/viewport, not just those that moved
@@ -883,15 +891,31 @@ export class PlayerService {
         
         // If there are visible players, send "pl" packet with ALL of them
         if (visiblePlayers.length > 0) {
-          const plData = this.makePlayerListData(visiblePlayers);
+          // Create cache key from sorted list of visible player IDs
+          const cacheKey = visiblePlayers
+            .map(p => p.sessionId)
+            .sort()
+            .join(',');
           
-          const plPacket = {
-            type: 'pl',
-            data: plData
-          };
+          // Check if we already created a packet for this exact set of visible players
+          let plPacket = packetCache.get(cacheKey);
+          
+          if (!plPacket) {
+            // Create packet for this unique visible set
+            const plData = this.makePlayerListData(visiblePlayers);
+            
+            plPacket = {
+              type: 'pl',
+              data: plData
+            };
+            
+            // Cache it for reuse
+            packetCache.set(cacheKey, plPacket);
+          }
           
           // Send pl packet directly - sendRaw will automatically wrap it in pkg
           // Format: pkg > pl > p (as expected by the client)
+          // Note: Multiple receivers can now receive the SAME packet object (memory efficient)
           this.world.sendTo(receiver, plPacket);
         }
       }
@@ -926,6 +950,9 @@ export class PlayerService {
    * Garante que todos os jogadores recebam as posições no formato consistente
    * pkg > pl > p, incluindo suas próprias posições.
    * 
+   * OPTIMIZATION: Creates packet once per unique visible set instead of per receiver.
+   * This reduces packet creation overhead when multiple players see the same set of players.
+   * 
    * @param {string} mapId - ID do mapa
    * @param {Object|null} excludePlayer - Jogador a excluir dos receptores (null = enviar para todos)
    * 
@@ -939,6 +966,11 @@ export class PlayerService {
     const allPlayersInMap = this.world.getPlayersInMap(mapId);
     if (allPlayersInMap.length === 0) return;
     
+    // Cache packets by visible player set to avoid recreating identical packets
+    // Key: sorted comma-separated list of visible player session IDs
+    // Value: the pl packet to send
+    const packetCache = new Map();
+    
     // Iterates through each receiver in the map
     for (const receiver of allPlayersInMap) {
       // Skip if this is the excluded player
@@ -951,15 +983,31 @@ export class PlayerService {
       
       // If there are visible players, send "pl" packet with ALL of them
       if (visiblePlayers.length > 0) {
-        const plData = this.makePlayerListData(visiblePlayers);
+        // Create cache key from sorted list of visible player IDs
+        const cacheKey = visiblePlayers
+          .map(p => p.sessionId)
+          .sort()
+          .join(',');
         
-        const plPacket = {
-          type: 'pl',
-          data: plData
-        };
+        // Check if we already created a packet for this exact set of visible players
+        let plPacket = packetCache.get(cacheKey);
+        
+        if (!plPacket) {
+          // Create packet for this unique visible set
+          const plData = this.makePlayerListData(visiblePlayers);
+          
+          plPacket = {
+            type: 'pl',
+            data: plData
+          };
+          
+          // Cache it for reuse
+          packetCache.set(cacheKey, plPacket);
+        }
         
         // Send pl packet directly - sendRaw will automatically wrap it in pkg
         // Format: pkg > pl > p (as expected by the client)
+        // Note: Multiple receivers can now receive the SAME packet object (memory efficient)
         this.world.sendTo(receiver, plPacket);
       }
     }
