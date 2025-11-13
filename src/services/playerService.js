@@ -871,6 +871,40 @@ export class PlayerService {
       // Get all players in the map
       const allPlayersInMap = this.world.getPlayersInMap(mapId);
       
+      // === OPTIMIZATION: Check if all players are within viewport of each other ===
+      // If yes, we can create ONE packet for the entire map (maximum efficiency)
+      let allPlayersVisible = true;
+      
+      if (allPlayersInMap.length > 1) {
+        // Check if every player can see every other player
+        for (let i = 0; i < allPlayersInMap.length && allPlayersVisible; i++) {
+          for (let j = i + 1; j < allPlayersInMap.length && allPlayersVisible; j++) {
+            if (!this.isPlayerInViewRange(allPlayersInMap[i], allPlayersInMap[j])) {
+              allPlayersVisible = false;
+            }
+          }
+        }
+      }
+      
+      // === FAST PATH: All players within viewport - ONE packet for entire map ===
+      if (allPlayersVisible) {
+        // Create single packet with ALL players in map
+        const plData = this.makePlayerListData(allPlayersInMap);
+        const plPacket = {
+          type: 'pl',
+          data: plData
+        };
+        
+        // Send the SAME packet object to ALL receivers
+        for (const receiver of allPlayersInMap) {
+          // Send the same packet to everyone (maximum efficiency)
+          this.world.sendTo(receiver, plPacket);
+        }
+        
+        continue; // Move to next map - this map is done
+      }
+      
+      // === SLOW PATH: Players spread out - cache by visible set ===
       // Cache packets by visible player set to avoid recreating identical packets
       // Key: sorted comma-separated list of visible player session IDs
       // Value: the pl packet to send
@@ -950,8 +984,10 @@ export class PlayerService {
    * Garante que todos os jogadores recebam as posições no formato consistente
    * pkg > pl > p, incluindo suas próprias posições.
    * 
-   * OPTIMIZATION: Creates packet once per unique visible set instead of per receiver.
-   * This reduces packet creation overhead when multiple players see the same set of players.
+   * OPTIMIZATION V2: Creates single packet per map when all players are within viewport.
+   * - If all players can see each other: 1 packet for entire map
+   * - If players are spread out: Multiple packets cached by visible set
+   * This maximizes packet reuse and minimizes overhead.
    * 
    * @param {string} mapId - ID do mapa
    * @param {Object|null} excludePlayer - Jogador a excluir dos receptores (null = enviar para todos)
@@ -966,6 +1002,43 @@ export class PlayerService {
     const allPlayersInMap = this.world.getPlayersInMap(mapId);
     if (allPlayersInMap.length === 0) return;
     
+    // === OPTIMIZATION: Check if all players are within viewport of each other ===
+    // If yes, we can create ONE packet for the entire map (maximum efficiency)
+    let allPlayersVisible = true;
+    
+    if (allPlayersInMap.length > 1) {
+      // Check if every player can see every other player
+      for (let i = 0; i < allPlayersInMap.length && allPlayersVisible; i++) {
+        for (let j = i + 1; j < allPlayersInMap.length && allPlayersVisible; j++) {
+          if (!this.isPlayerInViewRange(allPlayersInMap[i], allPlayersInMap[j])) {
+            allPlayersVisible = false;
+          }
+        }
+      }
+    }
+    
+    // === FAST PATH: All players within viewport - ONE packet for entire map ===
+    if (allPlayersVisible) {
+      // Create single packet with ALL players in map
+      const plData = this.makePlayerListData(allPlayersInMap);
+      const plPacket = {
+        type: 'pl',
+        data: plData
+      };
+      
+      // Send the SAME packet object to ALL receivers
+      for (const receiver of allPlayersInMap) {
+        // Skip if this is the excluded player
+        if (excludePlayer && receiver === excludePlayer) continue;
+        
+        // Send the same packet to everyone (maximum efficiency)
+        this.world.sendTo(receiver, plPacket);
+      }
+      
+      return; // Done - all players received the same packet
+    }
+    
+    // === SLOW PATH: Players spread out - cache by visible set ===
     // Cache packets by visible player set to avoid recreating identical packets
     // Key: sorted comma-separated list of visible player session IDs
     // Value: the pl packet to send
