@@ -205,8 +205,10 @@ export class SecurityService {
     }
 
     // === VALIDAÇÃO 5: Caminho Contínuo ===
-    // Verifica se o jogador está seguindo um caminho contínuo
-    // (A -> B -> C), não pulando posições
+    // DESABILITADO: Permite movimento livre para qualquer andar/posição
+    // O jogador pode se mover para qualquer coordenada sem seguir um caminho contínuo
+    // (Anteriormente forçava A -> B -> C, agora permite A -> C diretamente)
+    /*
     if (history.positions.length > 0) {
       const lastPos = history.positions[history.positions.length - 1];
       const gapDistance = this._calculateDistance(lastPos.x, lastPos.y, currentX, currentY);
@@ -222,6 +224,7 @@ export class SecurityService {
         // Mas registramos para análise
       }
     }
+    */
 
     // === TODAS AS VALIDAÇÕES PASSARAM ===
     // Registra nova posição no histórico
