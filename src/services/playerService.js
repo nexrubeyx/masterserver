@@ -24,6 +24,14 @@ import { savePlayerState } from '../models/PlayerState.js';
 import { sendMapObjectSpawnsToPlayer, sendMapObjectPlacementsToPlayer } from './mapObjectsLoader.js';
 import { isDeepWater, isWalkable, getModifiedSpeed, DEFAULT_PLAYER_SPEED } from '../constants/tiles.js';
 import { compressLZW } from '../utils/compression.js';
+import { 
+  getDirectionOffset, 
+  isValidDirection, 
+  getCardinalComponent,
+  WALK_FIRST_STEP_DELAY,
+  WALK_TURN_DELAY,
+  WALK_CANCEL_LOCK
+} from '../constants/movement.js';
 
 export class PlayerService {
   /**
@@ -104,7 +112,7 @@ export class PlayerService {
    * - x, y: posição atual
    * - dx, dy: posição de ORIGEM do movimento (onde o movimento começou)
    * - s: velocidade (ms/tile)
-   * - d: direção (0=cima, 1=direita, 2=baixo, 3=esquerda)
+   * - d: direção cardinal (0-3) para renderização de sprites
    * - ch: channel/camada (0 = padrão)
    */
   makePlayerSnapshotPacket(player) {
@@ -113,6 +121,10 @@ export class PlayerService {
     // Se está movendo, dx/dy = posição onde o movimento começou (_moveOriginX/Y)
     let dx = player._moveOriginX !== undefined ? player._moveOriginX : player.x;
     let dy = player._moveOriginY !== undefined ? player._moveOriginY : player.y;
+    
+    // For rendering, use cardinal direction (0-3) even if player is moving diagonally
+    // Most clients only have 4-direction sprites, so we convert diagonal to cardinal
+    const renderDirection = getCardinalComponent(player.dir || 0);
     
     return {
       type: 'p',
@@ -123,7 +135,7 @@ export class PlayerService {
       dx: dx,  // Origem X (onde o movimento começou)
       dy: dy,  // Origem Y (onde o movimento começou)
       s: player.speed || 300,
-      d: player.dir || 0,
+      d: renderDirection,  // Cardinal direction for sprite rendering (0-3)
       ch: 0  // Channel (não usado, sempre 0)
     };
   }
@@ -444,12 +456,13 @@ export class PlayerService {
    * 
    * Fluxo de processamento:
    * 1. Flush pendências do tick anterior (viewport, snapshot)
-   * 2. Se não está se movendo, retorna
-   * 3. Acumula delta time
-   * 4. Processa múltiplos passos se acumulou tempo suficiente
-   * 5. Para cada passo: valida movimento e atualiza posição
-   * 6. Marca viewport/snapshot como sujos se moveu
-   * 7. Flush novamente para enviar atualizações
+   * 2. Process queued direction if walk lock expired
+   * 3. Se não está se movendo, retorna
+   * 4. Acumula delta time
+   * 5. Processa múltiplos passos se acumulou tempo suficiente
+   * 6. Para cada passo: valida movimento e atualiza posição
+   * 7. Marca viewport/snapshot como sujos se moveu
+   * 8. Flush novamente para enviar atualizações
    * 
    * Sistema de movimento:
    * - Baseado em acumulador de tempo (_accumMs)
@@ -464,6 +477,14 @@ export class PlayerService {
     // Envia viewport e snapshots que foram marcados como sujos
     this.flushViewportIfDirty(player, now);
     this.flushSnapshotIfDirty(player, now);
+
+    // === PASSO 1.5: Process queued direction if walk lock expired ===
+    if (player._queuedDirection !== undefined && 
+        (!player._walkLockUntil || now >= player._walkLockUntil)) {
+      const queuedDir = player._queuedDirection;
+      player._queuedDirection = undefined;
+      this.startMoving(player, queuedDir);
+    }
 
     // Se não está se movendo, não há mais nada a fazer
     if (!player.moving) return;
@@ -496,11 +517,10 @@ export class PlayerService {
       const lastValidY = player.y;
 
       // === CÁLCULO DA PRÓXIMA POSIÇÃO ===
-      // Direção: 0=cima, 1=direita, 2=baixo, 3=esquerda
-      const dx = (player.dir === 1 ? 1 : player.dir === 3 ? -1 : 0);
-      const dy = (player.dir === 2 ? 1 : player.dir === 0 ? -1 : 0);
-      const nx = player.x + dx;  // Próxima posição X
-      const ny = player.y + dy;  // Próxima posição Y
+      // Direção: 0=N, 1=E, 2=S, 3=W, 4=NE, 5=SE, 6=SW, 7=NW
+      const offset = getDirectionOffset(player.dir);
+      const nx = player.x + offset.dx;  // Próxima posição X
+      const ny = player.y + offset.dy;  // Próxima posição Y
 
       // === VALIDAÇÃO DE SEGURANÇA ===
       // Valida movimento usando o serviço de segurança
@@ -673,7 +693,7 @@ export class PlayerService {
    * Chamado quando cliente envia comando 'h' com direção.
    * 
    * @param {Object} player - Jogador
-   * @param {number} dir - Direção (0=cima, 1=direita, 2=baixo, 3=esquerda)
+   * @param {number} dir - Direção (0-7: N, E, S, W, NE, SE, SW, NW)
    * 
    * O movimento continua até:
    * - Cliente enviar 'h' sem direção (para)
@@ -685,18 +705,44 @@ export class PlayerService {
    * permanecem constantes durante toda a sessão de movimento.
    */
   startMoving(player, dir) {
-    // Valida direção (deve ser 0-3)
-    if (!Number.isInteger(dir) || dir < 0 || dir > 3) return;
+    // Valida direção (deve ser 0-7)
+    if (!isValidDirection(dir)) {
+      this.logger.warn(
+        { sessionId: player.sessionId, direction: dir },
+        'Invalid direction received in startMoving'
+      );
+      return;
+    }
+    
+    // Check walk lock - prevents movement spam
+    const now = Date.now();
+    if (player._walkLockUntil && now < player._walkLockUntil) {
+      // Walk is locked, queue direction for later if not already moving
+      if (!player.moving) {
+        player._queuedDirection = dir;
+      }
+      return;
+    }
     
     // Se está começando um novo movimento (não estava movendo antes),
     // salva a posição atual como origem do movimento
-    if (!player.moving) {
+    const wasMoving = player.moving;
+    if (!wasMoving) {
       player._moveOriginX = player.x;
       player._moveOriginY = player.y;
+      
+      // Apply first step delay (OTCv8 feature)
+      player._walkLockUntil = now + WALK_FIRST_STEP_DELAY;
+    } else if (player.dir !== dir) {
+      // Changing direction while moving - apply turn delay
+      player._walkLockUntil = now + WALK_TURN_DELAY;
     }
     
     player.dir = dir;      // Atualiza direção
     player.moving = true;  // Marca como movendo
+    
+    // Clear queued direction since we're now moving
+    player._queuedDirection = undefined;
     
     // Envia atualização imediata de posição/direção para todos os jogadores
     // Isso garante que a mudança de direção seja vista imediatamente
@@ -731,6 +777,12 @@ export class PlayerService {
     player._moveOriginX = undefined;
     player._moveOriginY = undefined;
     
+    // Clear queued direction
+    player._queuedDirection = undefined;
+    
+    // Apply walk cancel lock (OTCv8 feature)
+    player._walkLockUntil = Date.now() + WALK_CANCEL_LOCK;
+    
     // Registra parada no serviço de segurança para iniciar período de graça
     this.world.securityService.recordPlayerStop(player);
     
@@ -758,13 +810,21 @@ export class PlayerService {
    * Chamado quando cliente envia comando 'm' (virar sem andar).
    * 
    * @param {Object} player - Jogador
-   * @param {number} dir - Direção (0=cima, 1=direita, 2=baixo, 3=esquerda)
+   * @param {number} dir - Direção (0-7: N, E, S, W, NE, SE, SW, NW)
    * 
    * Útil para o jogador "olhar" em uma direção sem se mover.
    */
   setHeading(player, dir) {
     // Atualiza direção se válida
-    if (Number.isInteger(dir)) player.dir = dir;
+    if (isValidDirection(dir)) {
+      player.dir = dir;
+    } else {
+      this.logger.warn(
+        { sessionId: player.sessionId, direction: dir },
+        'Invalid direction received in setHeading'
+      );
+      return;
+    }
     
     // Envia atualização de posição usando formato pl (pkg > pl > p)
     // Notifica outros jogadores da mudança de direção (não precisa enviar para si mesmo)
